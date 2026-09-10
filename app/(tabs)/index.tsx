@@ -6,9 +6,16 @@ import {
 import { router } from 'expo-router';
 import { usePflanzen, usePflanzenAmpel, addGiessung, addGiessungBatch } from '../../src/lib/hooks';
 import { COLORS, AMPEL_FARBE } from '../../src/lib/constants';
-import type { PflanzeKomplett, AmpelStatus } from '../../src/types';
+import type { PflanzeKomplett, PflanzeAmpel } from '../../src/types';
 
 const ETAGEN_REIHENFOLGE = ['Keller', 'Erdgeschoss', 'Obergeschoss', 'Dachgeschoss'];
+
+function letzteGiessungText(tage: number | null | undefined): string {
+  if (tage === null || tage === undefined) return 'Noch nie gegossen';
+  if (tage === 0) return 'Heute schon gegossen';
+  if (tage === 1) return 'vor 1 Tag gegossen';
+  return `vor ${tage} Tagen gegossen`;
+}
 
 export default function HomeScreen() {
   const { pflanzen, loading, reload } = usePflanzen();
@@ -20,8 +27,8 @@ export default function HomeScreen() {
   const spalten = width < 400 ? 2 : 3;
 
   const ampelMap = useMemo(() => {
-    const map: Record<string, AmpelStatus> = {};
-    ampelListe.forEach(a => { map[a.id] = a.ampel_status; });
+    const map: Record<string, PflanzeAmpel> = {};
+    ampelListe.forEach(a => { map[a.id] = a; });
     return map;
   }, [ampelListe]);
 
@@ -161,7 +168,8 @@ export default function HomeScreen() {
                           <PflanzeTile
                             key={p.id}
                             pflanze={p}
-                            ampelStatus={ampelMap[p.id] ?? 'unbekannt'}
+                            ampelStatus={ampelMap[p.id]?.ampel_status ?? 'unbekannt'}
+                            tageSeitGiessung={ampelMap[p.id]?.tage_seit_giessung ?? null}
                             watering={wateringId === p.id}
                             width={tileWidth}
                             onWater={() => waterSingle(p.id)}
@@ -182,10 +190,11 @@ export default function HomeScreen() {
 }
 
 function PflanzeTile({
-  pflanze, ampelStatus, watering, width, onWater, onInfo,
+  pflanze, ampelStatus, tageSeitGiessung, watering, width, onWater, onInfo,
 }: {
   pflanze: PflanzeKomplett;
   ampelStatus: string;
+  tageSeitGiessung: number | null;
   watering: boolean;
   width: `${number}%`;
   onWater: () => void;
@@ -216,6 +225,7 @@ function PflanzeTile({
         <View style={styles.tileTextWrap}>
           <Text style={styles.tileName} numberOfLines={2}>{spitzname}</Text>
           {!!zweitname && <Text style={styles.tileSubname} numberOfLines={1}>{zweitname}</Text>}
+          <Text style={styles.tileGiessInfo} numberOfLines={1}>{letzteGiessungText(tageSeitGiessung)}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -277,7 +287,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   infoIcon: { fontSize: 11 },
-  tileTextWrap: { alignItems: 'center', justifyContent: 'center' },
-  tileName: { fontSize: 16, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  tileSubname: { fontSize: 9, fontWeight: '400', color: 'rgba(255,255,255,0.85)', marginTop: 2, textAlign: 'center' },
+  tileTextWrap: { alignItems: 'center', justifyContent: 'center', width: '100%' },
+  tileName: { width: '100%', fontSize: 16, fontWeight: '800', color: '#fff', textAlign: 'center' },
+  tileSubname: { width: '100%', fontSize: 9, fontWeight: '400', color: 'rgba(255,255,255,0.85)', marginTop: 2, textAlign: 'center' },
+  tileGiessInfo: { width: '100%', fontSize: 8, fontWeight: '600', color: 'rgba(255,255,255,0.9)', marginTop: 5, textAlign: 'center' },
 });
