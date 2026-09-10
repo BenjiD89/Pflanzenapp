@@ -88,6 +88,8 @@ CREATE TRIGGER trigger_bestand_aktualisiert
   FOR EACH ROW EXECUTE FUNCTION update_aktualisiert_am();
 
 -- View: Bestand mit Art-Infos (nützlich für die App)
+-- Hinweis: spitzname/korrektur_tage/gruppe_id kommen erst mit den Erweiterungen
+-- weiter unten dazu - die View wird dort per CREATE OR REPLACE VIEW ergänzt.
 CREATE VIEW v_pflanzen_komplett AS
 SELECT
   b.id,
@@ -112,7 +114,10 @@ SELECT
   b.standort_etage,
   b.standort_position,
   b.topf_innendurchmesser_mm,
+  b.topf_zustand,
   b.topf_umtopfen_empfohlen,
+  b.topf_notiz,
+  b.uebertopf_geplant_mm,
   b.bewaesserungssystem,
   b.zustand_bewertung,
   b.zustand_bemerkungen,
@@ -249,3 +254,46 @@ INSERT INTO zimmer (name, etage) VALUES ('Esszimmer', 'Erdgeschoss');
 
 ALTER TABLE zimmer ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "public_all_zimmer" ON zimmer FOR ALL USING (true);
+
+-- v_pflanzen_komplett neu erstellen, jetzt inkl. spitzname/korrektur_tage/gruppe_id
+-- (die Spalten kamen erst durch die Erweiterungen oben dazu)
+CREATE OR REPLACE VIEW v_pflanzen_komplett AS
+SELECT
+  b.id,
+  b.name,
+  b.spitzname,
+  b.art_id,
+  k.pflanzenname_de,
+  k.gattung,
+  k.art_lateinisch,
+  k.wasserbedarf_stufe,
+  k.giessintervall_sommer_tage,
+  k.giessintervall_winter_tage,
+  k.giessregel,
+  k.licht,
+  k.giftig,
+  k.giftig_fuer,
+  k.pflege_duengen,
+  k.pflege_umtopfen,
+  k.pflege_luftfeuchtigkeit,
+  k.pflege_temperatur,
+  k.pflege_typische_probleme,
+  b.standort_zimmer,
+  b.standort_etage,
+  b.standort_position,
+  b.topf_innendurchmesser_mm,
+  b.topf_zustand,
+  b.topf_umtopfen_empfohlen,
+  b.topf_notiz,
+  b.uebertopf_geplant_mm,
+  b.bewaesserungssystem,
+  b.zustand_bewertung,
+  b.zustand_bemerkungen,
+  b.zustand_letzte_kontrolle,
+  b.foto_url,
+  b.naechste_giessung,
+  b.korrektur_tage,
+  b.gruppe_id,
+  b.aktualisiert_am
+FROM pflanzen_bestand b
+LEFT JOIN pflanzen_katalog k ON b.art_id = k.id;

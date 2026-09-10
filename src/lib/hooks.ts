@@ -181,6 +181,58 @@ export async function addPflanze(pflanze: {
   return { error };
 }
 
+// Neue Pflanzenart anlegen (wenn die gewünschte Art noch nicht im Katalog ist)
+export async function addArt(art: {
+  pflanzenname_de: string;
+  gattung: string;
+  wasserbedarf_stufe?: 'niedrig' | 'mittel' | 'hoch';
+  giessintervall_sommer_tage?: number | null;
+  giessintervall_winter_tage?: number | null;
+  gelb_ab_tage_sommer?: number | null;
+  rot_ab_tage_sommer?: number | null;
+  gelb_ab_tage_winter?: number | null;
+  rot_ab_tage_winter?: number | null;
+}) {
+  const id = 'art' + Date.now().toString().slice(-6);
+  const { data, error } = await supabase
+    .from('pflanzen_katalog')
+    .insert({
+      id,
+      pflanzenname_de: art.pflanzenname_de,
+      gattung: art.gattung,
+      wasserbedarf_stufe: art.wasserbedarf_stufe ?? null,
+      giessintervall_sommer_tage: art.giessintervall_sommer_tage ?? null,
+      giessintervall_winter_tage: art.giessintervall_winter_tage ?? null,
+      gelb_ab_tage_sommer: art.gelb_ab_tage_sommer ?? null,
+      rot_ab_tage_sommer: art.rot_ab_tage_sommer ?? null,
+      gelb_ab_tage_winter: art.gelb_ab_tage_winter ?? null,
+      rot_ab_tage_winter: art.rot_ab_tage_winter ?? null,
+    })
+    .select()
+    .single();
+  return { data, error };
+}
+
+// Standort- und Topf-Attribute einer Pflanze aktualisieren (ändern sich über die Zeit,
+// z.B. beim Umtopfen oder Umzug in ein anderes Zimmer)
+export async function updatePflanzeDetails(pflanzeId: string, updates: Partial<{
+  standort_zimmer: string;
+  standort_etage: string;
+  standort_position: string | null;
+  topf_innendurchmesser_mm: number | null;
+  topf_zustand: string | null;
+  topf_notiz: string | null;
+  topf_umtopfen_empfohlen: boolean;
+  uebertopf_geplant_mm: number | null;
+  bewaesserungssystem: string | null;
+}>) {
+  const { error } = await supabase
+    .from('pflanzen_bestand')
+    .update(updates)
+    .eq('id', pflanzeId);
+  return { error };
+}
+
 // Katalog (Arten) laden - für Dropdown im "neue Pflanze"-Formular
 export function useKatalog() {
   const [katalog, setKatalog] = useState<{ id: string; pflanzenname_de: string; gattung: string }[]>([]);

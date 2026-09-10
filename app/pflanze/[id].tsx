@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, Image,
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  StyleSheet, Alert, ActivityIndicator, Image, Switch,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { usePflanze, useGiessungen, addGiessung, updateZustand, uploadFoto, updateFotoUrl, addFeedback } from '../../src/lib/hooks';
-import { COLORS, ZUSTAND_FARBE, ZUSTAND_EMOJI, ZUSTAND_OPTIONEN, WASSER_EMOJI, FEEDBACK_OPTIONEN } from '../../src/lib/constants';
-import type { ZustandBewertung } from '../../src/types';
+import {
+  usePflanze, useGiessungen, useZimmer, addGiessung, updateZustand, uploadFoto, updateFotoUrl,
+  addFeedback, addZimmer, updatePflanzeDetails,
+} from '../../src/lib/hooks';
+import { COLORS, ZUSTAND_FARBE, ZUSTAND_EMOJI, ZUSTAND_OPTIONEN, WASSER_EMOJI, FEEDBACK_OPTIONEN, ETAGEN } from '../../src/lib/constants';
+import type { ZustandBewertung, Etage } from '../../src/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -15,10 +18,24 @@ export default function PflanzeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { pflanze, loading, reload } = usePflanze(id);
   const { giessungen, reload: reloadGiessungen } = useGiessungen(id);
+  const { zimmer: zimmerListe, reload: reloadZimmer } = useZimmer();
   const [giessLoading, setGiessLoading] = useState(false);
   const [fotoLoading, setFotoLoading] = useState(false);
-  const [feedbackSichtbar, setFeedbackSichtbar] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  const [bearbeiten, setBearbeiten] = useState(false);
+  const [speichernLoading, setSpeichernLoading] = useState(false);
+  const [editEtage, setEditEtage] = useState<Etage>('Erdgeschoss');
+  const [editZimmerName, setEditZimmerName] = useState<string>('');
+  const [editNeuesZimmerModus, setEditNeuesZimmerModus] = useState(false);
+  const [editNeuesZimmerName, setEditNeuesZimmerName] = useState('');
+  const [editPosition, setEditPosition] = useState('');
+  const [editTopfDurchmesser, setEditTopfDurchmesser] = useState('');
+  const [editTopfZustand, setEditTopfZustand] = useState('');
+  const [editTopfNotiz, setEditTopfNotiz] = useState('');
+  const [editUebertopf, setEditUebertopf] = useState('');
+  const [editUmtopfenEmpfohlen, setEditUmtopfenEmpfohlen] = useState(false);
+  const [editBewaesserung, setEditBewaesserung] = useState('');
 
   if (loading) return <ActivityIndicator size="large" color={COLORS.greenMid} style={{ flex: 1, marginTop: 80 }} />;
   if (!pflanze) return <Text style={{ margin: 32 }}>Pflanze nicht gefunden.</Text>;
@@ -30,14 +47,62 @@ export default function PflanzeDetailScreen() {
     ? differenceInDays(new Date(), parseISO(letzteGiessung.datum))
     : null;
 
+  function bearbeitenStarten() {
+    setEditEtage((pflanze!.standort_etage as Etage) ?? 'Erdgeschoss');
+    setEditZimmerName(pflanze!.standort_zimmer ?? '');
+    setEditNeuesZimmerModus(false);
+    setEditNeuesZimmerName('');
+    setEditPosition(pflanze!.standort_position ?? '');
+    setEditTopfDurchmesser(pflanze!.topf_innendurchmesser_mm?.toString() ?? '');
+    setEditTopfZustand(pflanze!.topf_zustand ?? '');
+    setEditTopfNotiz(pflanze!.topf_notiz ?? '');
+    setEditUebertopf(pflanze!.uebertopf_geplant_mm?.toString() ?? '');
+    setEditUmtopfenEmpfohlen(pflanze!.topf_umtopfen_empfohlen ?? false);
+    setEditBewaesserung(pflanze!.bewaesserungssystem ?? '');
+    setBearbeiten(true);
+  }
+
+  async function bearbeitenSpeichern() {
+    let zimmerName = editZimmerName;
+    setSpeichernLoading(true);
+
+    if (editNeuesZimmerModus && editNeuesZimmerName.trim()) {
+      const { data, error } = await addZimmer(editNeuesZimmerName.trim(), editEtage);
+      if (error) {
+        Alert.alert('Fehler', 'Zimmer konnte nicht angelegt werden.');
+        setSpeichernLoading(false);
+        return;
+      }
+      zimmerName = data.name;
+      reloadZimmer();
+    }
+
+    const { error } = await updatePflanzeDetails(id, {
+      standort_zimmer: zimmerName || undefined,
+      standort_etage: editEtage,
+      standort_position: editPosition.trim() || null,
+      topf_innendurchmesser_mm: editTopfDurchmesser ? parseInt(editTopfDurchmesser, 10) : null,
+      topf_zustand: editTopfZustand.trim() || null,
+      topf_notiz: editTopfNotiz.trim() || null,
+      topf_umtopfen_empfohlen: editUmtopfenEmpfohlen,
+      uebertopf_geplant_mm: editUebertopf ? parseInt(editUebertopf, 10) : null,
+      bewaesserungssystem: editBewaesserung.trim() || null,
+    });
+
+    setSpeichernLoading(false);
+    if (error) {
+      Alert.alert('Fehler', 'Änderungen konnten nicht gespeichert werden.');
+      return;
+    }
+    setBearbeiten(false);
+    reload();
+  }
+
   async function handleGiessen() {
     setGiessLoading(true);
     const { error } = await addGiessung(id);
     if (error) Alert.alert('Fehler', error.message);
-    else {
-      reloadGiessungen();
-      setFeedbackSichtbar(true);
-    }
+    else reloadGiessungen();
     setGiessLoading(false);
   }
 
@@ -45,7 +110,6 @@ export default function PflanzeDetailScreen() {
     setFeedbackLoading(true);
     const { error } = await addFeedback(id, typ, delta);
     setFeedbackLoading(false);
-    setFeedbackSichtbar(false);
     if (error) {
       Alert.alert('Fehler', 'Feedback konnte nicht gespeichert werden.');
       return;
@@ -109,15 +173,114 @@ export default function PflanzeDetailScreen() {
 
       <View style={styles.content}>
         {/* Name & Art */}
-        <Text style={styles.name}>{pflanze.spitzname || pflanze.name}</Text>
-        {pflanze.spitzname && <Text style={styles.zweitname}>{pflanze.name}</Text>}
-        <Text style={styles.art}>{pflanze.gattung} · {pflanze.art_lateinisch}</Text>
-
-        {/* Standort */}
-        <View style={styles.row}>
-          <InfoChip icon="📍" label={`${pflanze.standort_zimmer ?? '–'} · ${pflanze.standort_etage ?? '–'}`} />
-          <InfoChip icon="🪴" label={pflanze.standort_position ?? '–'} />
+        <View style={styles.nameRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{pflanze.spitzname || pflanze.name}</Text>
+            {pflanze.spitzname && <Text style={styles.zweitname}>{pflanze.name}</Text>}
+            <Text style={styles.art}>{pflanze.gattung} · {pflanze.art_lateinisch}</Text>
+          </View>
+          {!bearbeiten && (
+            <TouchableOpacity style={styles.bearbeitenButton} onPress={bearbeitenStarten}>
+              <Text style={styles.bearbeitenButtonText}>✏️ Bearbeiten</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {!bearbeiten ? (
+          <View style={styles.row}>
+            <InfoChip icon="📍" label={`${pflanze.standort_zimmer ?? '–'} · ${pflanze.standort_etage ?? '–'}`} />
+            <InfoChip icon="🪴" label={pflanze.standort_position ?? '–'} />
+          </View>
+        ) : (
+          <View style={[styles.card, styles.editCard]}>
+            <Text style={styles.cardTitle}>✏️ Standort &amp; Topf bearbeiten</Text>
+
+            <Text style={styles.feldLabelKlein}>Etage / Stockwerk</Text>
+            <View style={styles.chipReihe}>
+              {ETAGEN.map(e => (
+                <TouchableOpacity
+                  key={e}
+                  style={[styles.editChip, editEtage === e && styles.editChipAktiv]}
+                  onPress={() => setEditEtage(e)}
+                >
+                  <Text style={[styles.editChipText, editEtage === e && styles.editChipTextAktiv]}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.feldLabelKlein}>Zimmer</Text>
+            <View style={styles.chipReihe}>
+              {zimmerListe.map(z => (
+                <TouchableOpacity
+                  key={z.id}
+                  style={[styles.editChip, editZimmerName === z.name && !editNeuesZimmerModus && styles.editChipAktiv]}
+                  onPress={() => {
+                    setEditZimmerName(z.name);
+                    setEditNeuesZimmerModus(false);
+                    if (z.etage) setEditEtage(z.etage as Etage);
+                  }}
+                >
+                  <Text style={[styles.editChipText, editZimmerName === z.name && !editNeuesZimmerModus && styles.editChipTextAktiv]}>
+                    {z.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={[styles.editChip, editNeuesZimmerModus && styles.editChipAktiv]}
+                onPress={() => setEditNeuesZimmerModus(true)}
+              >
+                <Text style={[styles.editChipText, editNeuesZimmerModus && styles.editChipTextAktiv]}>➕ Neu</Text>
+              </TouchableOpacity>
+            </View>
+            {editNeuesZimmerModus && (
+              <TextInput
+                style={styles.editInput}
+                value={editNeuesZimmerName}
+                onChangeText={setEditNeuesZimmerName}
+                placeholder="Name des neuen Zimmers"
+              />
+            )}
+
+            <Text style={styles.feldLabelKlein}>Position im Raum</Text>
+            <TextInput style={styles.editInput} value={editPosition} onChangeText={setEditPosition} placeholder="z.B. Fensterbank" />
+
+            <View style={styles.trennlinie} />
+
+            <View style={styles.zeile2}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.feldLabelKlein}>Topf-Innendurchmesser (mm)</Text>
+                <TextInput style={styles.editInput} value={editTopfDurchmesser} onChangeText={setEditTopfDurchmesser} placeholder="z.B. 200" keyboardType="numeric" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.feldLabelKlein}>Übertopf geplant (mm)</Text>
+                <TextInput style={styles.editInput} value={editUebertopf} onChangeText={setEditUebertopf} placeholder="z.B. 250" keyboardType="numeric" />
+              </View>
+            </View>
+
+            <Text style={styles.feldLabelKlein}>Topf-Zustand / Beschreibung</Text>
+            <TextInput style={styles.editInput} value={editTopfZustand} onChangeText={setEditTopfZustand} placeholder="z.B. grauer Keramiktopf" />
+
+            <Text style={styles.feldLabelKlein}>Topf-Notiz</Text>
+            <TextInput style={styles.editInput} value={editTopfNotiz} onChangeText={setEditTopfNotiz} placeholder="Sonstige Notizen zum Topf" />
+
+            <Text style={styles.feldLabelKlein}>Bewässerungssystem</Text>
+            <TextInput style={styles.editInput} value={editBewaesserung} onChangeText={setEditBewaesserung} placeholder="z.B. Dochtsystem" />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.feldLabelKlein}>Umtopfen empfohlen</Text>
+              <Switch value={editUmtopfenEmpfohlen} onValueChange={setEditUmtopfenEmpfohlen} trackColor={{ true: COLORS.greenMid }} />
+            </View>
+
+            <View style={styles.modalAktionen}>
+              <TouchableOpacity style={styles.abbrechenButton} onPress={() => setBearbeiten(false)} disabled={speichernLoading}>
+                <Text style={styles.abbrechenButtonText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.speichernButton} onPress={bearbeitenSpeichern} disabled={speichernLoading}>
+                <Text style={styles.speichernButtonText}>{speichernLoading ? 'Speichert...' : 'Speichern'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Gießen Button */}
         <TouchableOpacity
@@ -131,25 +294,26 @@ export default function PflanzeDetailScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Feuchte-Feedback nach dem Gießen */}
-        {feedbackSichtbar && (
-          <View style={[styles.card, styles.feedbackCard]}>
-            <Text style={styles.cardTitle}>💧 Wie war die Erde vor dem Gießen?</Text>
-            <View style={styles.feedbackRow}>
-              {FEEDBACK_OPTIONEN.map(opt => (
-                <TouchableOpacity
-                  key={opt.typ}
-                  style={styles.feedbackBtn}
-                  onPress={() => handleFeedback(opt.typ, opt.delta)}
-                  disabled={feedbackLoading}
-                >
-                  <Text style={styles.feedbackIcon}>{opt.icon}</Text>
-                  <Text style={styles.feedbackLabel}>{opt.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        {/* Feuchte-Feedback / Korrektur des Gieß-Rhythmus */}
+        <View style={[styles.card, styles.feedbackCard]}>
+          <Text style={styles.cardTitle}>💧 Feedback zur Erdfeuchte</Text>
+          <Text style={styles.feedbackHint}>
+            Verschiebt den Gieß-Rhythmus dieser Pflanze für zukünftige Empfehlungen.
+          </Text>
+          <View style={styles.feedbackRow}>
+            {FEEDBACK_OPTIONEN.map(opt => (
+              <TouchableOpacity
+                key={opt.typ}
+                style={styles.feedbackBtn}
+                onPress={() => handleFeedback(opt.typ, opt.delta)}
+                disabled={feedbackLoading}
+              >
+                <Text style={styles.feedbackIcon}>{opt.icon}</Text>
+                <Text style={styles.feedbackLabel}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        )}
+        </View>
 
         {/* Gieß-Info */}
         <View style={styles.card}>
@@ -221,16 +385,20 @@ export default function PflanzeDetailScreen() {
         </View>
 
         {/* Topf-Info */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>🪴 Topf</Text>
-          <InfoRow label="Innendurchmesser" value={pflanze.topf_innendurchmesser_mm ? `${pflanze.topf_innendurchmesser_mm} mm` : 'noch messen'} />
-          <InfoRow label="Übertopf geplant" value={pflanze.uebertopf_geplant_mm ? `${pflanze.uebertopf_geplant_mm} mm` : '–'} />
-          {pflanze.topf_umtopfen_empfohlen && (
-            <View style={styles.umtopfenHinweis}>
-              <Text style={styles.umtopfenText}>🪴 Umtopfen empfohlen!</Text>
-            </View>
-          )}
-        </View>
+        {!bearbeiten && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>🪴 Topf</Text>
+            <InfoRow label="Innendurchmesser" value={pflanze.topf_innendurchmesser_mm ? `${pflanze.topf_innendurchmesser_mm} mm` : 'noch messen'} />
+            <InfoRow label="Zustand" value={pflanze.topf_zustand ?? '–'} />
+            <InfoRow label="Übertopf geplant" value={pflanze.uebertopf_geplant_mm ? `${pflanze.uebertopf_geplant_mm} mm` : '–'} />
+            {pflanze.topf_notiz && <Text style={styles.giessregel}>{pflanze.topf_notiz}</Text>}
+            {pflanze.topf_umtopfen_empfohlen && (
+              <View style={styles.umtopfenHinweis}>
+                <Text style={styles.umtopfenText}>🪴 Umtopfen empfohlen!</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Gieß-History */}
         {giessungen.length > 0 && (
@@ -317,6 +485,7 @@ const styles = StyleSheet.create({
   giessNotiz: { fontSize: 12, color: '#6a8a6e', marginTop: 2 },
   zweitname: { fontSize: 13, color: '#8aa08e', marginTop: -4, marginBottom: 4 },
   feedbackCard: { borderWidth: 1.5, borderColor: '#2980b9' },
+  feedbackHint: { fontSize: 12, color: '#6a8a6e', marginBottom: 10 },
   feedbackRow: { flexDirection: 'column', gap: 8, marginTop: 4 },
   feedbackBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -324,4 +493,42 @@ const styles = StyleSheet.create({
   },
   feedbackIcon: { fontSize: 20 },
   feedbackLabel: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
+
+  nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  bearbeitenButton: {
+    backgroundColor: COLORS.cream, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  bearbeitenButtonText: { fontSize: 12, fontWeight: '600', color: COLORS.brown },
+  editCard: { borderWidth: 1.5, borderColor: COLORS.greenMid, marginTop: 4 },
+  feldLabelKlein: { fontSize: 12, fontWeight: '600', color: COLORS.greenDeep, marginBottom: 6, marginTop: 12 },
+  chipReihe: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  editChip: {
+    borderWidth: 1.5, borderColor: COLORS.greenPale, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 7,
+  },
+  editChipAktiv: { backgroundColor: COLORS.greenMid, borderColor: COLORS.greenMid },
+  editChipText: { fontSize: 12, color: COLORS.text },
+  editChipTextAktiv: { color: '#fff', fontWeight: '600' },
+  editInput: {
+    backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: COLORS.greenPale,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: COLORS.text,
+  },
+  trennlinie: { height: 1, backgroundColor: '#f0ede6', marginVertical: 14 },
+  zeile2: { flexDirection: 'row', gap: 12 },
+  switchRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 14,
+  },
+  modalAktionen: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  abbrechenButton: {
+    flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+    borderWidth: 1.5, borderColor: COLORS.greenPale,
+  },
+  abbrechenButtonText: { color: COLORS.text, fontSize: 15, fontWeight: '600' },
+  speichernButton: {
+    flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+    backgroundColor: COLORS.greenMid,
+  },
+  speichernButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

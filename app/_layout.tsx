@@ -12,7 +12,10 @@ export default function RootLayout() {
           headerTitleStyle: { fontWeight: '600' },
           contentStyle: { backgroundColor: '#faf8f3' },
         }}
-      />
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="pflanze/[id]" options={{ title: 'Pflanze' }} />
+      </Stack>
     </>
   );
 }

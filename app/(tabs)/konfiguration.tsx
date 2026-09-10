@@ -6,9 +6,10 @@ import {
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  usePflanzen, useZimmer, useKatalog, addZimmer, addPflanze, uploadFoto, updateFotoUrl,
-} from '../src/lib/hooks';
-import { COLORS } from '../src/lib/constants';
+  usePflanzen, useZimmer, useKatalog, addZimmer, addPflanze, addArt, uploadFoto, updateFotoUrl,
+} from '../../src/lib/hooks';
+import { COLORS, ETAGEN, WASSERBEDARF_OPTIONEN, schaetzeAmpelSchwellen } from '../../src/lib/constants';
+import type { Etage, WasserbedarfStufe } from '../../src/types';
 
 export default function KonfigurationScreen() {
   const { pflanzen, loading, reload } = usePflanzen();
@@ -19,9 +20,6 @@ export default function KonfigurationScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.zurueckBtn}>
-          <Text style={styles.zurueckText}>‹ Zurück</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>⚙️ Konfiguration</Text>
         <Text style={styles.headerSub}>{pflanzen.length} Pflanzen im Bestand</Text>
       </View>
@@ -82,6 +80,7 @@ function NeuePflanzeModal({
   const [name, setName] = useState('');
   const [spitzname, setSpitzname] = useState('');
   const [artId, setArtId] = useState<string | null>(null);
+  const [etage, setEtage] = useState<Etage>('Erdgeschoss');
   const [zimmerId, setZimmerId] = useState<string | null>(null);
   const [neuesZimmerName, setNeuesZimmerName] = useState('');
   const [neuesZimmerModus, setNeuesZimmerModus] = useState(false);
@@ -89,10 +88,20 @@ function NeuePflanzeModal({
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [speichern, setSpeichern] = useState(false);
 
+  // Neue Pflanzenart anlegen (falls noch nicht im Katalog)
+  const [neueArtModus, setNeueArtModus] = useState(false);
+  const [neueArtName, setNeueArtName] = useState('');
+  const [neueArtGattung, setNeueArtGattung] = useState('');
+  const [neueArtWasserbedarf, setNeueArtWasserbedarf] = useState<WasserbedarfStufe>('mittel');
+  const [neueArtIntervallSommer, setNeueArtIntervallSommer] = useState('');
+  const [neueArtIntervallWinter, setNeueArtIntervallWinter] = useState('');
+
   function zuruecksetzen() {
-    setName(''); setSpitzname(''); setArtId(null); setZimmerId(null);
+    setName(''); setSpitzname(''); setArtId(null); setEtage('Erdgeschoss'); setZimmerId(null);
     setNeuesZimmerName(''); setNeuesZimmerModus(false); setTopfgroesse('');
     setFotoUri(null);
+    setNeueArtModus(false); setNeueArtName(''); setNeueArtGattung('');
+    setNeueArtWasserbedarf('mittel'); setNeueArtIntervallSommer(''); setNeueArtIntervallWinter('');
   }
 
   async function fotoAufnehmen() {
@@ -116,27 +125,55 @@ function NeuePflanzeModal({
       Alert.alert('Name fehlt', 'Bitte einen Namen für die Pflanze eingeben.');
       return;
     }
-    if (!artId) {
-      Alert.alert('Pflanzenart fehlt', 'Bitte eine Pflanzenart auswählen.');
+    if (!artId && !(neueArtModus && neueArtName.trim() && neueArtGattung.trim())) {
+      Alert.alert('Pflanzenart fehlt', 'Bitte eine Pflanzenart auswählen oder eine neue mit Name und Gattung anlegen.');
+      return;
+    }
+    if (!zimmerId && !(neuesZimmerModus && neuesZimmerName.trim())) {
+      Alert.alert('Zimmer fehlt', 'Bitte ein Zimmer auswählen oder ein neues anlegen.');
       return;
     }
 
     setSpeichern(true);
 
-    let finaleZimmerId = zimmerId;
+    // 1) Ggf. neue Pflanzenart anlegen
+    let finaleArtId = artId;
+    if (neueArtModus && neueArtName.trim() && neueArtGattung.trim()) {
+      const sommerTage = neueArtIntervallSommer ? parseInt(neueArtIntervallSommer, 10) : null;
+      const winterTage = neueArtIntervallWinter ? parseInt(neueArtIntervallWinter, 10) : null;
+      const schwellenSommer = schaetzeAmpelSchwellen(sommerTage);
+      const schwellenWinter = schaetzeAmpelSchwellen(winterTage);
+
+      const { data, error } = await addArt({
+        pflanzenname_de: neueArtName.trim(),
+        gattung: neueArtGattung.trim(),
+        wasserbedarf_stufe: neueArtWasserbedarf,
+        giessintervall_sommer_tage: sommerTage,
+        giessintervall_winter_tage: winterTage,
+        gelb_ab_tage_sommer: schwellenSommer.gelb,
+        rot_ab_tage_sommer: schwellenSommer.rot,
+        gelb_ab_tage_winter: schwellenWinter.gelb,
+        rot_ab_tage_winter: schwellenWinter.rot,
+      });
+      if (error || !data) {
+        Alert.alert('Fehler', 'Neue Pflanzenart konnte nicht angelegt werden.');
+        setSpeichern(false);
+        return;
+      }
+      finaleArtId = data.id;
+    }
+
+    // 2) Ggf. neues Zimmer anlegen (mit der gewählten Etage)
     let zimmerName = zimmerListe.find(z => z.id === zimmerId)?.name ?? '';
-    let zimmerEtage = zimmerListe.find(z => z.id === zimmerId)?.etage ?? '';
 
     if (neuesZimmerModus && neuesZimmerName.trim()) {
-      const { data, error } = await addZimmer(neuesZimmerName.trim(), zimmerEtage || 'Erdgeschoss');
+      const { data, error } = await addZimmer(neuesZimmerName.trim(), etage);
       if (error) {
         Alert.alert('Fehler', 'Zimmer konnte nicht angelegt werden.');
         setSpeichern(false);
         return;
       }
-      finaleZimmerId = data.id;
       zimmerName = data.name;
-      zimmerEtage = data.etage;
       onZimmerHinzugefuegt();
     }
 
@@ -146,9 +183,9 @@ function NeuePflanzeModal({
       id: neueId,
       name: name.trim(),
       spitzname: spitzname.trim() || name.trim(),
-      art_id: artId,
+      art_id: finaleArtId!,
       standort_zimmer: zimmerName || 'Unbekannt',
-      standort_etage: zimmerEtage || 'Erdgeschoss',
+      standort_etage: etage,
       topf_innendurchmesser_mm: topfgroesse ? parseInt(topfgroesse, 10) : undefined,
     });
 
@@ -208,12 +245,67 @@ function NeuePflanzeModal({
           {katalog.map(k => (
             <TouchableOpacity
               key={k.id}
-              style={[styles.auswahlChip, artId === k.id && styles.auswahlChipAktiv]}
-              onPress={() => setArtId(k.id)}
+              style={[styles.auswahlChip, artId === k.id && !neueArtModus && styles.auswahlChipAktiv]}
+              onPress={() => { setArtId(k.id); setNeueArtModus(false); }}
             >
-              <Text style={[styles.auswahlChipText, artId === k.id && styles.auswahlChipTextAktiv]}>
+              <Text style={[styles.auswahlChipText, artId === k.id && !neueArtModus && styles.auswahlChipTextAktiv]}>
                 {k.pflanzenname_de}
               </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.auswahlChip, neueArtModus && styles.auswahlChipAktiv]}
+            onPress={() => { setNeueArtModus(true); setArtId(null); }}
+          >
+            <Text style={[styles.auswahlChipText, neueArtModus && styles.auswahlChipTextAktiv]}>
+              ➕ Neue Pflanzenart
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {neueArtModus && (
+          <View style={styles.neueArtBox}>
+            <Text style={styles.feldLabelKlein}>Name der Art</Text>
+            <TextInput style={styles.input} value={neueArtName} onChangeText={setNeueArtName} placeholder="z.B. Bogenhanf" />
+            <Text style={styles.feldLabelKlein}>Gattung</Text>
+            <TextInput style={styles.input} value={neueArtGattung} onChangeText={setNeueArtGattung} placeholder="z.B. Sansevieria" />
+            <Text style={styles.feldLabelKlein}>Wasserbedarf</Text>
+            <View style={styles.chipAuswahl}>
+              {WASSERBEDARF_OPTIONEN.map(w => (
+                <TouchableOpacity
+                  key={w}
+                  style={[styles.auswahlChipKlein, neueArtWasserbedarf === w && styles.auswahlChipAktiv]}
+                  onPress={() => setNeueArtWasserbedarf(w)}
+                >
+                  <Text style={[styles.auswahlChipText, neueArtWasserbedarf === w && styles.auswahlChipTextAktiv]}>{w}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.zeile2}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.feldLabelKlein}>Gießintervall Sommer (Tage)</Text>
+                <TextInput style={styles.input} value={neueArtIntervallSommer} onChangeText={setNeueArtIntervallSommer} placeholder="z.B. 10" keyboardType="numeric" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.feldLabelKlein}>Gießintervall Winter (Tage)</Text>
+                <TextInput style={styles.input} value={neueArtIntervallWinter} onChangeText={setNeueArtIntervallWinter} placeholder="z.B. 20" keyboardType="numeric" />
+              </View>
+            </View>
+            <Text style={styles.hinweisText}>
+              Ampel-Schwellenwerte werden automatisch aus dem Intervall geschätzt und lassen sich später anpassen.
+            </Text>
+          </View>
+        )}
+
+        {/* Etage / Stockwerk */}
+        <Text style={styles.feldLabel}>Etage / Stockwerk</Text>
+        <View style={styles.chipAuswahl}>
+          {ETAGEN.map(e => (
+            <TouchableOpacity
+              key={e}
+              style={[styles.auswahlChip, etage === e && styles.auswahlChipAktiv]}
+              onPress={() => setEtage(e)}
+            >
+              <Text style={[styles.auswahlChipText, etage === e && styles.auswahlChipTextAktiv]}>{e}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -225,7 +317,11 @@ function NeuePflanzeModal({
             <TouchableOpacity
               key={z.id}
               style={[styles.auswahlChip, zimmerId === z.id && !neuesZimmerModus && styles.auswahlChipAktiv]}
-              onPress={() => { setZimmerId(z.id); setNeuesZimmerModus(false); }}
+              onPress={() => {
+                setZimmerId(z.id);
+                setNeuesZimmerModus(false);
+                if (z.etage) setEtage(z.etage as Etage);
+              }}
             >
               <Text style={[styles.auswahlChipText, zimmerId === z.id && !neuesZimmerModus && styles.auswahlChipTextAktiv]}>
                 {z.name}
@@ -234,7 +330,7 @@ function NeuePflanzeModal({
           ))}
           <TouchableOpacity
             style={[styles.auswahlChip, neuesZimmerModus && styles.auswahlChipAktiv]}
-            onPress={() => setNeuesZimmerModus(true)}
+            onPress={() => { setNeuesZimmerModus(true); setZimmerId(null); }}
           >
             <Text style={[styles.auswahlChipText, neuesZimmerModus && styles.auswahlChipTextAktiv]}>
               ➕ Neues Zimmer
@@ -248,6 +344,9 @@ function NeuePflanzeModal({
             onChangeText={setNeuesZimmerName}
             placeholder="Name des neuen Zimmers"
           />
+        )}
+        {neuesZimmerModus && (
+          <Text style={styles.hinweisText}>Wird angelegt in: {etage}</Text>
         )}
 
         {/* Topfgröße */}
@@ -277,8 +376,6 @@ function NeuePflanzeModal({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.warmWhite },
   header: { backgroundColor: COLORS.greenDeep, padding: 20, paddingTop: 56 },
-  zurueckBtn: { marginBottom: 8 },
-  zurueckText: { color: COLORS.greenPale, fontSize: 15 },
   headerTitle: { fontSize: 24, fontWeight: '700', color: COLORS.cream },
   headerSub: { fontSize: 13, color: COLORS.greenPale, marginTop: 4 },
   neueButton: {
@@ -323,9 +420,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: COLORS.greenPale, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 8,
   },
+  auswahlChipKlein: {
+    borderWidth: 1.5, borderColor: COLORS.greenPale, borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 6,
+  },
   auswahlChipAktiv: { backgroundColor: COLORS.greenMid, borderColor: COLORS.greenMid },
   auswahlChipText: { fontSize: 13, color: COLORS.text },
   auswahlChipTextAktiv: { color: '#fff', fontWeight: '600' },
+  neueArtBox: {
+    backgroundColor: COLORS.cream, borderRadius: 12, padding: 14, marginTop: 8,
+  },
+  feldLabelKlein: { fontSize: 12, fontWeight: '600', color: COLORS.greenDeep, marginBottom: 6, marginTop: 10 },
+  zeile2: { flexDirection: 'row', gap: 12 },
+  hinweisText: { fontSize: 11, color: '#6a8a6e', marginTop: 8, fontStyle: 'italic' },
   modalAktionen: { flexDirection: 'row', gap: 12, marginTop: 32 },
   abbrechenButton: {
     flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
