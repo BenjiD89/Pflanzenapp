@@ -223,9 +223,32 @@ function PflanzeTile({
         <ActivityIndicator size="small" color="#fff" />
       ) : (
         <View style={styles.tileTextWrap}>
-          <Text style={styles.tileName} numberOfLines={2}>{spitzname}</Text>
-          {!!zweitname && <Text style={styles.tileSubname} numberOfLines={1}>{zweitname}</Text>}
-          <Text style={styles.tileGiessInfo} numberOfLines={1}>{letzteGiessungText(tageSeitGiessung)}</Text>
+          <Text
+            style={styles.tileName}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.4}
+          >
+            {spitzname}
+          </Text>
+          {!!zweitname && (
+            <Text
+              style={styles.tileSubname}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {zweitname}
+            </Text>
+          )}
+          <Text
+            style={styles.tileGiessInfo}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
+          >
+            {letzteGiessungText(tageSeitGiessung)}
+          </Text>
         </View>
       )}
     </TouchableOpacity>
@@ -270,9 +293,10 @@ const styles = StyleSheet.create({
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tile: {
-    aspectRatio: 1,
+    minHeight: 128,
     borderRadius: 14,
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 16,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -287,8 +311,8 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   infoIcon: { fontSize: 11 },
-  tileTextWrap: { alignItems: 'center', justifyContent: 'center', width: '100%' },
-  tileName: { width: '100%', fontSize: 16, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  tileSubname: { width: '100%', fontSize: 9, fontWeight: '400', color: 'rgba(255,255,255,0.85)', marginTop: 2, textAlign: 'center' },
-  tileGiessInfo: { width: '100%', fontSize: 8, fontWeight: '600', color: 'rgba(255,255,255,0.9)', marginTop: 5, textAlign: 'center' },
+  tileTextWrap: { alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 2 },
+  tileName: { width: '100%', fontSize: 26, fontWeight: '800', color: '#fff', textAlign: 'center' },
+  tileSubname: { width: '100%', fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.9)', marginTop: 4, textAlign: 'center' },
+  tileGiessInfo: { width: '100%', fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.95)', marginTop: 8, textAlign: 'center' },
 });
