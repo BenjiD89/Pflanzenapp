@@ -120,17 +120,34 @@ function NeuePflanzeModal({
     if (!result.canceled) setFotoUri(result.assets[0].uri);
   }
 
+  function fehlendePflichtfelder(): string[] {
+    const fehlend: string[] = [];
+
+    if (!name.trim()) fehlend.push('Name der Pflanze');
+
+    if (neueArtModus) {
+      if (!neueArtName.trim()) fehlend.push('Name der neuen Pflanzenart');
+      if (!neueArtGattung.trim()) fehlend.push('Gattung der neuen Pflanzenart');
+    } else if (!artId) {
+      fehlend.push('Pflanzenart (auswählen oder neue anlegen)');
+    }
+
+    if (neuesZimmerModus) {
+      if (!neuesZimmerName.trim()) fehlend.push('Name des neuen Zimmers');
+    } else if (!zimmerId) {
+      fehlend.push('Zimmer (auswählen oder neues anlegen)');
+    }
+
+    return fehlend;
+  }
+
   async function speichernHandler() {
-    if (!name.trim()) {
-      Alert.alert('Name fehlt', 'Bitte einen Namen für die Pflanze eingeben.');
-      return;
-    }
-    if (!artId && !(neueArtModus && neueArtName.trim() && neueArtGattung.trim())) {
-      Alert.alert('Pflanzenart fehlt', 'Bitte eine Pflanzenart auswählen oder eine neue mit Name und Gattung anlegen.');
-      return;
-    }
-    if (!zimmerId && !(neuesZimmerModus && neuesZimmerName.trim())) {
-      Alert.alert('Zimmer fehlt', 'Bitte ein Zimmer auswählen oder ein neues anlegen.');
+    const fehlend = fehlendePflichtfelder();
+    if (fehlend.length > 0) {
+      Alert.alert(
+        'Angaben fehlen',
+        `Bitte ergänze folgende Pflichtangaben:\n\n${fehlend.map(f => `• ${f}`).join('\n')}`
+      );
       return;
     }
 
