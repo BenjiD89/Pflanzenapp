@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, Alert, ActivityIndicator, Image, Modal,
+  StyleSheet, ActivityIndicator, Image, Modal,
 } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,7 @@ import {
   usePflanzen, useZimmer, useKatalog, addZimmer, addPflanze, addArt, uploadFoto, updateFotoUrl,
 } from '../../src/lib/hooks';
 import { COLORS, ETAGEN, WASSERBEDARF_OPTIONEN, schaetzeAmpelSchwellen } from '../../src/lib/constants';
+import { showAlert } from '../../src/lib/alert';
 import type { Etage, WasserbedarfStufe } from '../../src/types';
 
 export default function KonfigurationScreen() {
@@ -144,7 +145,7 @@ function NeuePflanzeModal({
   async function speichernHandler() {
     const fehlend = fehlendePflichtfelder();
     if (fehlend.length > 0) {
-      Alert.alert(
+      showAlert(
         'Angaben fehlen',
         `Bitte ergänze folgende Pflichtangaben:\n\n${fehlend.map(f => `• ${f}`).join('\n')}`
       );
@@ -173,7 +174,7 @@ function NeuePflanzeModal({
         rot_ab_tage_winter: schwellenWinter.rot,
       });
       if (error || !data) {
-        Alert.alert('Fehler', 'Neue Pflanzenart konnte nicht angelegt werden.');
+        showAlert('Fehler', 'Neue Pflanzenart konnte nicht angelegt werden.');
         setSpeichern(false);
         return;
       }
@@ -186,7 +187,7 @@ function NeuePflanzeModal({
     if (neuesZimmerModus && neuesZimmerName.trim()) {
       const { data, error } = await addZimmer(neuesZimmerName.trim(), etage);
       if (error) {
-        Alert.alert('Fehler', 'Zimmer konnte nicht angelegt werden.');
+        showAlert('Fehler', 'Zimmer konnte nicht angelegt werden.');
         setSpeichern(false);
         return;
       }
@@ -207,7 +208,7 @@ function NeuePflanzeModal({
     });
 
     if (error) {
-      Alert.alert('Fehler', 'Pflanze konnte nicht angelegt werden.');
+      showAlert('Fehler', 'Pflanze konnte nicht angelegt werden.');
       setSpeichern(false);
       return;
     }
@@ -217,7 +218,7 @@ function NeuePflanzeModal({
     const fotoZumHochladen = fotoUri;
     zuruecksetzen();
     onPflanzeHinzugefuegt();
-    Alert.alert(
+    showAlert(
       '✅ Erledigt',
       fotoZumHochladen
         ? 'Die neue Pflanze wurde angelegt. Das Foto wird im Hintergrund hochgeladen.'
@@ -232,11 +233,11 @@ function NeuePflanzeModal({
             await updateFotoUrl(neueId, url);
             onPflanzeHinzugefuegt();
           } else {
-            Alert.alert('Hinweis', 'Das Foto konnte nicht hochgeladen werden. Du kannst es später in der Detailansicht ergänzen.');
+            showAlert('Hinweis', 'Das Foto konnte nicht hochgeladen werden. Du kannst es später in der Detailansicht ergänzen.');
           }
         })
         .catch(() => {
-          Alert.alert('Hinweis', 'Das Foto konnte nicht hochgeladen werden. Du kannst es später in der Detailansicht ergänzen.');
+          showAlert('Hinweis', 'Das Foto konnte nicht hochgeladen werden. Du kannst es später in der Detailansicht ergänzen.');
         });
     }
   }

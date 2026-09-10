@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, TextInput, ActivityIndicator, RefreshControl, Alert, useWindowDimensions,
+  StyleSheet, TextInput, ActivityIndicator, RefreshControl, useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { usePflanzen, usePflanzenAmpel, addGiessung, addGiessungBatch } from '../../src/lib/hooks';
 import { COLORS, AMPEL_FARBE } from '../../src/lib/constants';
+import { showAlert } from '../../src/lib/alert';
 import type { PflanzeKomplett, PflanzeAmpel } from '../../src/types';
 
 const ETAGEN_REIHENFOLGE = ['Keller', 'Erdgeschoss', 'Obergeschoss', 'Dachgeschoss'];
@@ -67,7 +68,7 @@ export default function HomeScreen() {
     const { error } = await addGiessung(pflanzeId);
     setWateringId(null);
     if (error) {
-      Alert.alert('Fehler', 'Gießen konnte nicht gespeichert werden.');
+      showAlert('Fehler', 'Gießen konnte nicht gespeichert werden.');
       return;
     }
     ampelReload();
@@ -75,18 +76,18 @@ export default function HomeScreen() {
 
   async function waterArea(ids: string[], name: string) {
     if (ids.length === 0) {
-      Alert.alert('Keine Pflanzen', `Für "${name}" sind noch keine Pflanzen hinterlegt.`);
+      showAlert('Keine Pflanzen', `Für "${name}" sind noch keine Pflanzen hinterlegt.`);
       return;
     }
     setWateringArea(name);
     const { error } = await addGiessungBatch(ids);
     setWateringArea(null);
     if (error) {
-      Alert.alert('Fehler', 'Gießen konnte nicht gespeichert werden.');
+      showAlert('Fehler', 'Gießen konnte nicht gespeichert werden.');
       return;
     }
     ampelReload();
-    Alert.alert('✅ Erledigt', `${ids.length} Pflanze${ids.length > 1 ? 'n' : ''} in "${name}" gegossen.`);
+    showAlert('✅ Erledigt', `${ids.length} Pflanze${ids.length > 1 ? 'n' : ''} in "${name}" gegossen.`);
   }
 
   function reloadAll() {

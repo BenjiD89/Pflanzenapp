@@ -10,6 +10,7 @@ import {
   addFeedback, addZimmer, updatePflanzeDetails, deletePflanze,
 } from '../../src/lib/hooks';
 import { COLORS, ZUSTAND_FARBE, ZUSTAND_EMOJI, ZUSTAND_OPTIONEN, WASSER_EMOJI, FEEDBACK_OPTIONEN, ETAGEN } from '../../src/lib/constants';
+import { showAlert } from '../../src/lib/alert';
 import type { ZustandBewertung, Etage } from '../../src/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -70,7 +71,7 @@ export default function PflanzeDetailScreen() {
     if (editNeuesZimmerModus && editNeuesZimmerName.trim()) {
       const { data, error } = await addZimmer(editNeuesZimmerName.trim(), editEtage);
       if (error) {
-        Alert.alert('Fehler', 'Zimmer konnte nicht angelegt werden.');
+        showAlert('Fehler', 'Zimmer konnte nicht angelegt werden.');
         setSpeichernLoading(false);
         return;
       }
@@ -92,7 +93,7 @@ export default function PflanzeDetailScreen() {
 
     setSpeichernLoading(false);
     if (error) {
-      Alert.alert('Fehler', 'Änderungen konnten nicht gespeichert werden.');
+      showAlert('Fehler', 'Änderungen konnten nicht gespeichert werden.');
       return;
     }
     setBearbeiten(false);
@@ -102,7 +103,7 @@ export default function PflanzeDetailScreen() {
   async function handleGiessen() {
     setGiessLoading(true);
     const { error } = await addGiessung(id);
-    if (error) Alert.alert('Fehler', error.message);
+    if (error) showAlert('Fehler', error.message);
     else reloadGiessungen();
     setGiessLoading(false);
   }
@@ -112,11 +113,11 @@ export default function PflanzeDetailScreen() {
     const { error } = await addFeedback(id, typ, delta);
     setFeedbackLoading(false);
     if (error) {
-      Alert.alert('Fehler', 'Feedback konnte nicht gespeichert werden.');
+      showAlert('Fehler', 'Feedback konnte nicht gespeichert werden.');
       return;
     }
     reload();
-    Alert.alert('✅ Danke!', 'Feedback wurde gespeichert und fließt in die nächste Gieß-Empfehlung ein.');
+    showAlert('✅ Danke!', 'Feedback wurde gespeichert und fließt in die nächste Gieß-Empfehlung ein.');
   }
 
   async function handleZustandUpdate(neueBewertung: ZustandBewertung) {
@@ -148,13 +149,13 @@ export default function PflanzeDetailScreen() {
       await updateFotoUrl(id, url);
       reload();
     } else {
-      Alert.alert('Fehler', 'Foto konnte nicht hochgeladen werden.');
+      showAlert('Fehler', 'Foto konnte nicht hochgeladen werden.');
     }
     setFotoLoading(false);
   }
 
   function handleLoeschen() {
-    Alert.alert(
+    showAlert(
       'Pflanze löschen?',
       `"${pflanze.spitzname || pflanze.name}" wird unwiderruflich gelöscht, inklusive Gieß-Historie und Feedback.`,
       [
@@ -167,7 +168,7 @@ export default function PflanzeDetailScreen() {
             const { error } = await deletePflanze(id);
             setLoeschenLoading(false);
             if (error) {
-              Alert.alert('Fehler', 'Pflanze konnte nicht gelöscht werden.');
+              showAlert('Fehler', 'Pflanze konnte nicht gelöscht werden.');
               return;
             }
             router.replace('/');
