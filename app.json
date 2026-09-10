@@ -37,7 +37,8 @@
           "icon": "./assets/icon.png",
           "color": "#1a3a2a"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "pflanzenapp",
     "experiments": {
