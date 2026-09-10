@@ -195,15 +195,33 @@ function NeuePflanzeModal({
       return;
     }
 
-    if (fotoUri) {
-      const url = await uploadFoto(neueId, fotoUri);
-      if (url) await updateFotoUrl(neueId, url);
-    }
-
+    // Pflanze ist gespeichert - Formular sofort schließen, ohne auf den Foto-Upload zu warten.
     setSpeichern(false);
+    const fotoZumHochladen = fotoUri;
     zuruecksetzen();
-    Alert.alert('✅ Erledigt', 'Die neue Pflanze wurde angelegt.');
     onPflanzeHinzugefuegt();
+    Alert.alert(
+      '✅ Erledigt',
+      fotoZumHochladen
+        ? 'Die neue Pflanze wurde angelegt. Das Foto wird im Hintergrund hochgeladen.'
+        : 'Die neue Pflanze wurde angelegt.'
+    );
+
+    if (fotoZumHochladen) {
+      // Läuft im Hintergrund weiter - blockiert das Formular nicht mehr.
+      uploadFoto(neueId, fotoZumHochladen)
+        .then(async (url) => {
+          if (url) {
+            await updateFotoUrl(neueId, url);
+            onPflanzeHinzugefuegt();
+          } else {
+            Alert.alert('Hinweis', 'Das Foto konnte nicht hochgeladen werden. Du kannst es später in der Detailansicht ergänzen.');
+          }
+        })
+        .catch(() => {
+          Alert.alert('Hinweis', 'Das Foto konnte nicht hochgeladen werden. Du kannst es später in der Detailansicht ergänzen.');
+        });
+    }
   }
 
   return (

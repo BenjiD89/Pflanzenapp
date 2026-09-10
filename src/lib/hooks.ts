@@ -107,6 +107,15 @@ export async function updateFotoUrl(pflanzeId: string, fotoUrl: string) {
   return { error };
 }
 
+// Pflanze löschen (Gießungen/Feedback werden per ON DELETE CASCADE mitgelöscht)
+export async function deletePflanze(pflanzeId: string) {
+  const { error } = await supabase
+    .from('pflanzen_bestand')
+    .delete()
+    .eq('id', pflanzeId);
+  return { error };
+}
+
 // Foto zu Supabase Storage hochladen
 export async function uploadFoto(pflanzeId: string, localUri: string): Promise<string | null> {
   const ext = localUri.split('.').pop() ?? 'jpg';

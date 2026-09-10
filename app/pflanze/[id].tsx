@@ -7,7 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   usePflanze, useGiessungen, useZimmer, addGiessung, updateZustand, uploadFoto, updateFotoUrl,
-  addFeedback, addZimmer, updatePflanzeDetails,
+  addFeedback, addZimmer, updatePflanzeDetails, deletePflanze,
 } from '../../src/lib/hooks';
 import { COLORS, ZUSTAND_FARBE, ZUSTAND_EMOJI, ZUSTAND_OPTIONEN, WASSER_EMOJI, FEEDBACK_OPTIONEN, ETAGEN } from '../../src/lib/constants';
 import type { ZustandBewertung, Etage } from '../../src/types';
@@ -22,6 +22,7 @@ export default function PflanzeDetailScreen() {
   const [giessLoading, setGiessLoading] = useState(false);
   const [fotoLoading, setFotoLoading] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [loeschenLoading, setLoeschenLoading] = useState(false);
 
   const [bearbeiten, setBearbeiten] = useState(false);
   const [speichernLoading, setSpeichernLoading] = useState(false);
@@ -150,6 +151,30 @@ export default function PflanzeDetailScreen() {
       Alert.alert('Fehler', 'Foto konnte nicht hochgeladen werden.');
     }
     setFotoLoading(false);
+  }
+
+  function handleLoeschen() {
+    Alert.alert(
+      'Pflanze löschen?',
+      `"${pflanze.spitzname || pflanze.name}" wird unwiderruflich gelöscht, inklusive Gieß-Historie und Feedback.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: async () => {
+            setLoeschenLoading(true);
+            const { error } = await deletePflanze(id);
+            setLoeschenLoading(false);
+            if (error) {
+              Alert.alert('Fehler', 'Pflanze konnte nicht gelöscht werden.');
+              return;
+            }
+            router.replace('/');
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -414,6 +439,18 @@ export default function PflanzeDetailScreen() {
             ))}
           </View>
         )}
+
+        {/* Löschen */}
+        <TouchableOpacity
+          style={styles.loeschenButton}
+          onPress={handleLoeschen}
+          disabled={loeschenLoading}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.loeschenButtonText}>
+            {loeschenLoading ? 'Wird gelöscht...' : '🗑 Pflanze löschen'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -531,4 +568,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.greenMid,
   },
   speichernButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+  loeschenButton: {
+    marginTop: 8, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
+    borderWidth: 1.5, borderColor: COLORS.danger,
+  },
+  loeschenButtonText: { color: COLORS.danger, fontSize: 14, fontWeight: '600' },
 });
