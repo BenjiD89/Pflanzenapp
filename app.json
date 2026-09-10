@@ -2,11 +2,14 @@
   "expo": {
     "name": "Pflanzen App",
     "slug": "pflanzen-app",
+    "owner": "benjis-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#1a3a2a"
     },
     "ios": {
@@ -15,13 +18,19 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1a3a2a"
       },
       "package": "com.pflanzenapp"
     },
     "plugins": [
       "expo-router",
-      "expo-image-picker",
+      [
+        "expo-image-picker",
+        {
+          "microphonePermission": false
+        }
+      ],
       [
         "expo-notifications",
         {
@@ -33,6 +42,14 @@
     "scheme": "pflanzenapp",
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "d992af94-4360-45ff-8b7b-cf7c7e13cd0d"
+      }
     }
   }
 }
