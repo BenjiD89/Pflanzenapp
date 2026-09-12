@@ -7,7 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   usePflanze, useGiessungen, useZimmer, addGiessung, updateZustand, uploadFoto, updateFotoUrl,
-  addFeedback, addZimmer, updatePflanzeDetails, deletePflanze,
+  addFeedback, addZimmer, updatePflanzeDetails, deletePflanze, deleteGiessung, useSignedFotoUrl,
 } from '../../src/lib/hooks';
 import { COLORS, ZUSTAND_FARBE, ZUSTAND_EMOJI, ZUSTAND_OPTIONEN, WASSER_EMOJI, FEEDBACK_OPTIONEN, ETAGEN } from '../../src/lib/constants';
 import { showAlert } from '../../src/lib/alert';
@@ -27,6 +27,9 @@ export default function PflanzeDetailScreen() {
 
   const [bearbeiten, setBearbeiten] = useState(false);
   const [speichernLoading, setSpeichernLoading] = useState(false);
+  const [editSpitzname, setEditSpitzname] = useState('');
+  const [editBeschreibung, setEditBeschreibung] = useState('');
+  const [giessungLoeschenId, setGiessungLoeschenId] = useState<string | null>(null);
   const [editEtage, setEditEtage] = useState<Etage>('Erdgeschoss');
   const [editZimmerName, setEditZimmerName] = useState<string>('');
   const [editNeuesZimmerModus, setEditNeuesZimmerModus] = useState(false);
@@ -38,6 +41,7 @@ export default function PflanzeDetailScreen() {
   const [editUebertopf, setEditUebertopf] = useState('');
   const [editUmtopfenEmpfohlen, setEditUmtopfenEmpfohlen] = useState(false);
   const [editBewaesserung, setEditBewaesserung] = useState('');
+  const fotoUrl = useSignedFotoUrl(pflanze?.foto_url ?? null);
 
   if (loading) return <ActivityIndicator size="large" color={COLORS.greenMid} style={{ flex: 1, marginTop: 80 }} />;
   if (!pflanze) return <Text style={{ margin: 32 }}>Pflanze nicht gefunden.</Text>;
@@ -50,6 +54,8 @@ export default function PflanzeDetailScreen() {
     : null;
 
   function bearbeitenStarten() {
+    setEditSpitzname(pflanze!.spitzname ?? '');
+    setEditBeschreibung(pflanze!.name ?? '');
     setEditEtage((pflanze!.standort_etage as Etage) ?? 'Erdgeschoss');
     setEditZimmerName(pflanze!.standort_zimmer ?? '');
     setEditNeuesZimmerModus(false);
@@ -65,6 +71,11 @@ export default function PflanzeDetailScreen() {
   }
 
   async function bearbeitenSpeichern() {
+    if (!editBeschreibung.trim()) {
+      showAlert('Beschreibung fehlt', 'Bitte eine Beschreibung eingeben.');
+      return;
+    }
+
     let zimmerName = editZimmerName;
     setSpeichernLoading(true);
 
@@ -80,6 +91,8 @@ export default function PflanzeDetailScreen() {
     }
 
     const { error } = await updatePflanzeDetails(id, {
+      name: editBeschreibung.trim(),
+      spitzname: editSpitzname.trim() || null,
       standort_zimmer: zimmerName || undefined,
       standort_etage: editEtage,
       standort_position: editPosition.trim() || null,
@@ -98,6 +111,30 @@ export default function PflanzeDetailScreen() {
     }
     setBearbeiten(false);
     reload();
+  }
+
+  function handleGiessungLoeschen(giessungId: string, datum: string) {
+    showAlert(
+      'Gießung löschen?',
+      `Der Eintrag vom ${format(parseISO(datum), 'dd. MMM yyyy', { locale: de })} wird entfernt.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: async () => {
+            setGiessungLoeschenId(giessungId);
+            const { error } = await deleteGiessung(giessungId);
+            setGiessungLoeschenId(null);
+            if (error) {
+              showAlert('Fehler', 'Gießung konnte nicht gelöscht werden.');
+              return;
+            }
+            reloadGiessungen();
+          },
+        },
+      ]
+    );
   }
 
   async function handleGiessen() {
@@ -183,8 +220,8 @@ export default function PflanzeDetailScreen() {
       {/* Foto Header */}
       <TouchableOpacity onPress={handleFotoUpdate} activeOpacity={0.9}>
         <View style={styles.fotoBereich}>
-          {pflanze.foto_url ? (
-            <Image source={{ uri: pflanze.foto_url }} style={styles.foto} resizeMode="cover" />
+          {fotoUrl ? (
+            <Image source={{ uri: fotoUrl }} style={styles.foto} resizeMode="cover" />
           ) : (
             <View style={styles.fotoPlaceholder}>
               <Text style={styles.fotoIcon}>🌿</Text>
@@ -219,7 +256,15 @@ export default function PflanzeDetailScreen() {
           </View>
         ) : (
           <View style={[styles.card, styles.editCard]}>
-            <Text style={styles.cardTitle}>✏️ Standort &amp; Topf bearbeiten</Text>
+            <Text style={styles.cardTitle}>✏️ Pflanze bearbeiten</Text>
+
+            <Text style={styles.feldLabelKlein}>Spitzname</Text>
+            <TextInput style={styles.editInput} value={editSpitzname} onChangeText={setEditSpitzname} placeholder="z.B. Frieda" />
+
+            <Text style={styles.feldLabelKlein}>Beschreibung</Text>
+            <TextInput style={styles.editInput} value={editBeschreibung} onChangeText={setEditBeschreibung} placeholder="z.B. Monstera Küche" />
+
+            <View style={styles.trennlinie} />
 
             <Text style={styles.feldLabelKlein}>Etage / Stockwerk</Text>
             <View style={styles.chipReihe}>
@@ -431,11 +476,21 @@ export default function PflanzeDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>📅 Gieß-Historie</Text>
             {giessungen.slice(0, 5).map(g => (
-              <View key={g.id} style={styles.giessEntry}>
-                <Text style={styles.giessDate}>
-                  {format(parseISO(g.datum), 'dd. MMM yyyy', { locale: de })}
-                </Text>
-                {g.notiz && <Text style={styles.giessNotiz}>{g.notiz}</Text>}
+              <View key={g.id} style={styles.giessEntryRow}>
+                <View style={styles.giessEntry}>
+                  <Text style={styles.giessDate}>
+                    {format(parseISO(g.datum), 'dd. MMM yyyy', { locale: de })}
+                  </Text>
+                  {g.notiz && <Text style={styles.giessNotiz}>{g.notiz}</Text>}
+                </View>
+                <TouchableOpacity
+                  style={styles.giessLoeschenButton}
+                  onPress={() => handleGiessungLoeschen(g.id, g.datum)}
+                  disabled={giessungLoeschenId === g.id}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.giessLoeschenIcon}>{giessungLoeschenId === g.id ? '…' : '🗑'}</Text>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -518,9 +573,15 @@ const styles = StyleSheet.create({
   problemePunkt: { fontSize: 13, color: '#4a5a4e', lineHeight: 22 },
   umtopfenHinweis: { backgroundColor: 'rgba(230,126,34,0.1)', borderRadius: 8, padding: 10, marginTop: 12 },
   umtopfenText: { color: COLORS.warning, fontSize: 13, fontWeight: '600' },
-  giessEntry: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0ede6' },
+  giessEntryRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderBottomWidth: 1, borderBottomColor: '#f0ede6',
+  },
+  giessEntry: { paddingVertical: 8, flex: 1 },
   giessDate: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
   giessNotiz: { fontSize: 12, color: '#6a8a6e', marginTop: 2 },
+  giessLoeschenButton: { paddingHorizontal: 10, paddingVertical: 8 },
+  giessLoeschenIcon: { fontSize: 15, opacity: 0.6 },
   zweitname: { fontSize: 13, color: '#8aa08e', marginTop: -4, marginBottom: 4 },
   feedbackCard: { borderWidth: 1.5, borderColor: '#2980b9' },
   feedbackHint: { fontSize: 12, color: '#6a8a6e', marginBottom: 10 },

@@ -7,10 +7,12 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   usePflanzen, useZimmer, useKatalog, addZimmer, addPflanze, addArt, uploadFoto, updateFotoUrl,
+  kiPflanzenartRecherche, type KiPflanzenartVorschlag, useSignedFotoUrl,
 } from '../../src/lib/hooks';
 import { COLORS, ETAGEN, WASSERBEDARF_OPTIONEN, schaetzeAmpelSchwellen } from '../../src/lib/constants';
 import { showAlert } from '../../src/lib/alert';
-import type { Etage, WasserbedarfStufe } from '../../src/types';
+import { signOut } from '../../src/lib/auth';
+import type { Etage, WasserbedarfStufe, PflanzeKomplett } from '../../src/types';
 
 export default function KonfigurationScreen() {
   const { pflanzen, loading, reload } = usePflanzen();
@@ -21,8 +23,15 @@ export default function KonfigurationScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>⚙️ Konfiguration</Text>
-        <Text style={styles.headerSub}>{pflanzen.length} Pflanzen im Bestand</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View>
+            <Text style={styles.headerTitle}>⚙️ Konfiguration</Text>
+            <Text style={styles.headerSub}>{pflanzen.length} Pflanzen im Bestand</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={() => signOut()}>
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -36,21 +45,7 @@ export default function KonfigurationScreen() {
           <Text style={styles.sectionTitel}>Alle Pflanzen</Text>
           <View style={styles.grid}>
             {pflanzen.map(p => (
-              <TouchableOpacity
-                key={p.id}
-                style={styles.pflanzenKachel}
-                onPress={() => router.push(`/pflanze/${p.id}`)}
-              >
-                {p.foto_url ? (
-                  <Image source={{ uri: p.foto_url }} style={styles.kachelFoto} resizeMode="cover" />
-                ) : (
-                  <View style={styles.kachelFotoPlatzhalter}>
-                    <Text style={{ fontSize: 28 }}>🌿</Text>
-                  </View>
-                )}
-                <Text style={styles.kachelName}>{p.spitzname || p.name}</Text>
-                <Text style={styles.kachelUnterzeile}>{p.gattung} · {p.standort_zimmer ?? 'kein Standort'}</Text>
-              </TouchableOpacity>
+              <PflanzenKachel key={p.id} pflanze={p} onPress={() => router.push(`/pflanze/${p.id}`)} />
             ))}
           </View>
         </ScrollView>
@@ -65,6 +60,23 @@ export default function KonfigurationScreen() {
         onPflanzeHinzugefuegt={() => { reload(); setFormularOffen(false); }}
       />
     </View>
+  );
+}
+
+function PflanzenKachel({ pflanze, onPress }: { pflanze: PflanzeKomplett; onPress: () => void }) {
+  const fotoUrl = useSignedFotoUrl(pflanze.foto_url);
+  return (
+    <TouchableOpacity style={styles.pflanzenKachel} onPress={onPress}>
+      {fotoUrl ? (
+        <Image source={{ uri: fotoUrl }} style={styles.kachelFoto} resizeMode="cover" />
+      ) : (
+        <View style={styles.kachelFotoPlatzhalter}>
+          <Text style={{ fontSize: 28 }}>🌿</Text>
+        </View>
+      )}
+      <Text style={styles.kachelName}>{pflanze.spitzname || pflanze.name}</Text>
+      <Text style={styles.kachelUnterzeile}>{pflanze.gattung} · {pflanze.standort_zimmer ?? 'kein Standort'}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -97,12 +109,42 @@ function NeuePflanzeModal({
   const [neueArtIntervallSommer, setNeueArtIntervallSommer] = useState('');
   const [neueArtIntervallWinter, setNeueArtIntervallWinter] = useState('');
 
+  // KI-Recherche für die neue Pflanzenart (Edge Function "lookup-pflanzenart")
+  const [kiLaedt, setKiLaedt] = useState(false);
+  const [kiVorschlag, setKiVorschlag] = useState<KiPflanzenartVorschlag | null>(null);
+  const [kiFehler, setKiFehler] = useState<string | null>(null);
+
   function zuruecksetzen() {
     setName(''); setSpitzname(''); setArtId(null); setEtage('Erdgeschoss'); setZimmerId(null);
     setNeuesZimmerName(''); setNeuesZimmerModus(false); setTopfgroesse('');
     setFotoUri(null);
     setNeueArtModus(false); setNeueArtName(''); setNeueArtGattung('');
     setNeueArtWasserbedarf('mittel'); setNeueArtIntervallSommer(''); setNeueArtIntervallWinter('');
+    setKiLaedt(false); setKiVorschlag(null); setKiFehler(null);
+  }
+
+  async function kiRechercheStarten() {
+    if (!neueArtName.trim()) {
+      showAlert('Name fehlt', 'Bitte zuerst den Namen der neuen Pflanzenart eingeben.');
+      return;
+    }
+    setKiLaedt(true);
+    setKiFehler(null);
+    const { data, error } = await kiPflanzenartRecherche({
+      name: neueArtName.trim(),
+      gattung: neueArtGattung.trim() || undefined,
+    });
+    setKiLaedt(false);
+    if (error || !data) {
+      setKiFehler(error ?? 'Unbekannter Fehler bei der KI-Recherche.');
+      return;
+    }
+    setKiVorschlag(data);
+    // Bestehende Formularfelder mit dem Vorschlag vorbefüllen - bleiben editierbar.
+    if (!neueArtGattung.trim()) setNeueArtGattung(data.gattung);
+    setNeueArtWasserbedarf(data.wasserbedarf_stufe);
+    if (data.giessintervall_sommer_tage != null) setNeueArtIntervallSommer(String(data.giessintervall_sommer_tage));
+    if (data.giessintervall_winter_tage != null) setNeueArtIntervallWinter(String(data.giessintervall_winter_tage));
   }
 
   async function fotoAufnehmen() {
@@ -124,7 +166,7 @@ function NeuePflanzeModal({
   function fehlendePflichtfelder(): string[] {
     const fehlend: string[] = [];
 
-    if (!name.trim()) fehlend.push('Name der Pflanze');
+    if (!name.trim()) fehlend.push('Beschreibung der Pflanze');
 
     if (neueArtModus) {
       if (!neueArtName.trim()) fehlend.push('Name der neuen Pflanzenart');
@@ -172,6 +214,26 @@ function NeuePflanzeModal({
         rot_ab_tage_sommer: schwellenSommer.rot,
         gelb_ab_tage_winter: schwellenWinter.gelb,
         rot_ab_tage_winter: schwellenWinter.rot,
+        // Restliche Felder kommen, falls vorhanden, aus der KI-Recherche.
+        // wasserbedarf_stufe/giessintervall_* oben bleiben die vom Nutzer editierbaren Werte.
+        art_lateinisch: kiVorschlag?.art_lateinisch,
+        herkunft: kiVorschlag?.herkunft,
+        giessregel: kiVorschlag?.giessregel,
+        licht: kiVorschlag?.licht,
+        pflege_duengen: kiVorschlag?.pflege_duengen,
+        pflege_umtopfen: kiVorschlag?.pflege_umtopfen,
+        pflege_luftfeuchtigkeit: kiVorschlag?.pflege_luftfeuchtigkeit,
+        pflege_temperatur: kiVorschlag?.pflege_temperatur,
+        pflege_typische_probleme: kiVorschlag?.pflege_typische_probleme,
+        giftig: kiVorschlag?.giftig,
+        giftig_fuer: kiVorschlag?.giftig_fuer,
+        temperatur_min_c: kiVorschlag?.temperatur_min_c,
+        temperatur_max_c: kiVorschlag?.temperatur_max_c,
+        essbar: kiVorschlag?.essbar,
+        giesshaeufigkeit_pro_woche: kiVorschlag?.giesshaeufigkeit_pro_woche,
+        notizen: kiVorschlag?.notizen
+          ? kiVorschlag.notizen + (kiVorschlag.quellen?.length ? `\n\nQuellen: ${kiVorschlag.quellen.join(', ')}` : '')
+          : undefined,
       });
       if (error || !data) {
         showAlert('Fehler', 'Neue Pflanzenart konnte nicht angelegt werden.');
@@ -267,8 +329,8 @@ function NeuePflanzeModal({
           </View>
         </View>
 
-        {/* Name */}
-        <Text style={styles.feldLabel}>Name</Text>
+        {/* Beschreibung (DB-Spalte: name) */}
+        <Text style={styles.feldLabel}>Beschreibung</Text>
         <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="z.B. Monstera Küche" />
 
         {/* Spitzname */}
@@ -304,6 +366,52 @@ function NeuePflanzeModal({
             <TextInput style={styles.input} value={neueArtName} onChangeText={setNeueArtName} placeholder="z.B. Bogenhanf" />
             <Text style={styles.feldLabelKlein}>Gattung</Text>
             <TextInput style={styles.input} value={neueArtGattung} onChangeText={setNeueArtGattung} placeholder="z.B. Sansevieria" />
+
+            <TouchableOpacity
+              style={styles.kiButton}
+              onPress={kiRechercheStarten}
+              disabled={kiLaedt}
+            >
+              {kiLaedt ? (
+                <View style={styles.kiButtonLaedtRow}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.kiButtonText}>Recherchiert…</Text>
+                </View>
+              ) : (
+                <Text style={styles.kiButtonText}>🔍 KI-Recherche starten</Text>
+              )}
+            </TouchableOpacity>
+            {kiLaedt && (
+              <Text style={styles.kiHinweisText}>
+                ⏳ Das kann bis zu einer Minute dauern - die KI durchsucht dabei das Web nach Pflegeinfos.
+              </Text>
+            )}
+            {kiFehler && <Text style={styles.kiFehlerText}>{kiFehler}</Text>}
+            {kiVorschlag && (
+              <View style={styles.kiVorschauBox}>
+                <Text style={styles.kiVorschauTitel}>KI-Vorschlag (bitte prüfen)</Text>
+                {kiVorschlag.art_lateinisch && <Text style={styles.kiVorschauZeile}>Botanisch: {kiVorschlag.art_lateinisch}</Text>}
+                {kiVorschlag.herkunft && <Text style={styles.kiVorschauZeile}>Herkunft: {kiVorschlag.herkunft}</Text>}
+                {kiVorschlag.licht && <Text style={styles.kiVorschauZeile}>Licht: {kiVorschlag.licht}</Text>}
+                {kiVorschlag.giessregel && <Text style={styles.kiVorschauZeile}>Gießregel: {kiVorschlag.giessregel}</Text>}
+                {(kiVorschlag.temperatur_min_c != null || kiVorschlag.temperatur_max_c != null) && (
+                  <Text style={styles.kiVorschauZeile}>
+                    Temperatur: {kiVorschlag.temperatur_min_c ?? '?'}–{kiVorschlag.temperatur_max_c ?? '?'}°C
+                  </Text>
+                )}
+                <Text style={styles.kiVorschauZeile}>
+                  Giftig: {kiVorschlag.giftig ? `Ja${kiVorschlag.giftig_fuer ? ' (' + kiVorschlag.giftig_fuer + ')' : ''}` : 'Nein'} · Essbar: {kiVorschlag.essbar ? 'Ja' : 'Nein'}
+                </Text>
+                {kiVorschlag.notizen && <Text style={styles.kiVorschauZeile}>Hinweis: {kiVorschlag.notizen}</Text>}
+                {kiVorschlag.quellen?.length > 0 && (
+                  <Text style={styles.kiVorschauQuelle}>Quellen: {kiVorschlag.quellen.join(', ')}</Text>
+                )}
+                <Text style={styles.hinweisText}>
+                  Wasserbedarf und Gießintervalle unten wurden bereits übernommen und können angepasst werden. Der restliche Vorschlag wird beim Speichern mit übernommen.
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.feldLabelKlein}>Wasserbedarf</Text>
             <View style={styles.chipAuswahl}>
               {WASSERBEDARF_OPTIONEN.map(w => (
@@ -419,6 +527,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 24,
   },
   neueButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  logoutButton: {
+    backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16,
+    paddingHorizontal: 12, paddingVertical: 6, marginTop: 4,
+  },
+  logoutButtonText: { color: COLORS.cream, fontSize: 12, fontWeight: '600' },
   sectionTitel: { fontSize: 13, fontWeight: '600', color: COLORS.greenMid, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   pflanzenKachel: {
@@ -467,6 +580,18 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cream, borderRadius: 12, padding: 14, marginTop: 8,
   },
   feldLabelKlein: { fontSize: 12, fontWeight: '600', color: COLORS.greenDeep, marginBottom: 6, marginTop: 10 },
+  kiButton: {
+    backgroundColor: COLORS.greenDeep, borderRadius: 10, paddingVertical: 10,
+    alignItems: 'center', marginTop: 12,
+  },
+  kiButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  kiButtonLaedtRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  kiHinweisText: { fontSize: 11, color: '#6a8a6e', marginTop: 6, fontStyle: 'italic' },
+  kiFehlerText: { fontSize: 12, color: COLORS.danger, marginTop: 6 },
+  kiVorschauBox: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: COLORS.greenPale },
+  kiVorschauTitel: { fontSize: 12, fontWeight: '700', color: COLORS.greenDeep, marginBottom: 6 },
+  kiVorschauZeile: { fontSize: 12, color: COLORS.text, marginBottom: 4 },
+  kiVorschauQuelle: { fontSize: 10, color: '#6a8a6e', marginTop: 4, fontStyle: 'italic' },
   zeile2: { flexDirection: 'row', gap: 12 },
   hinweisText: { fontSize: 11, color: '#6a8a6e', marginTop: 8, fontStyle: 'italic' },
   modalAktionen: { flexDirection: 'row', gap: 12, marginTop: 32 },

@@ -22,6 +22,14 @@ export interface PflanzenKatalog {
   giftig: boolean;
   giftig_fuer: string | null;
   notizen: string | null;
+  temperatur_min_c: number | null;
+  temperatur_max_c: number | null;
+  essbar: boolean;
+  giesshaeufigkeit_pro_woche: number | null;
+  sortenschutz: boolean;
+  zuechter: string | null;
+  webseite: string | null;
+  pflanzenpass_code: string | null;
 }
 
 export interface PflanzeBestand {
@@ -65,6 +73,14 @@ export interface PflanzeKomplett extends PflanzeBestand {
   pflege_luftfeuchtigkeit: string | null;
   pflege_temperatur: string | null;
   pflege_typische_probleme: string[] | null;
+  temperatur_min_c: number | null;
+  temperatur_max_c: number | null;
+  essbar: boolean | null;
+  giesshaeufigkeit_pro_woche: number | null;
+  sortenschutz: boolean | null;
+  zuechter: string | null;
+  webseite: string | null;
+  pflanzenpass_code: string | null;
 }
 
 export interface Giessung {

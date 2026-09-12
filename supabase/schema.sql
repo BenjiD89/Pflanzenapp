@@ -135,6 +135,8 @@ ALTER TABLE giessungen ENABLE ROW LEVEL SECURITY;
 
 -- Für jetzt: alle Zugriffe erlauben (anon key reicht)
 CREATE POLICY "public_read_katalog" ON pflanzen_katalog FOR SELECT USING (true);
+CREATE POLICY "public_insert_katalog" ON pflanzen_katalog FOR INSERT WITH CHECK (true);
+CREATE POLICY "public_update_katalog" ON pflanzen_katalog FOR UPDATE USING (true);
 CREATE POLICY "public_all_bestand" ON pflanzen_bestand FOR ALL USING (true);
 CREATE POLICY "public_all_giessungen" ON giessungen FOR ALL USING (true);
 
@@ -297,3 +299,125 @@ SELECT
   b.aktualisiert_am
 FROM pflanzen_bestand b
 LEFT JOIN pflanzen_katalog k ON b.art_id = k.id;
+
+
+-- ============================================================
+-- ERWEITERUNG V1.4: Strukturierte Pflanzenetikett-Infos
+-- ============================================================
+
+-- Werte, die auf gekauften Pflanzenetiketten meist als Icons stehen
+-- (Temperaturbereich, Gießhäufigkeit/Woche, essbar/nicht essbar,
+-- Sortenschutz/Pflanzenpass, Züchter/Marke) - bisher nur als Freitext
+-- in pflege_temperatur/giessregel/notizen erfasst.
+ALTER TABLE pflanzen_katalog
+  ADD COLUMN temperatur_min_c INTEGER,
+  ADD COLUMN temperatur_max_c INTEGER,
+  ADD COLUMN essbar BOOLEAN DEFAULT true,
+  ADD COLUMN giesshaeufigkeit_pro_woche NUMERIC,
+  ADD COLUMN sortenschutz BOOLEAN DEFAULT false,
+  ADD COLUMN zuechter TEXT,
+  ADD COLUMN webseite TEXT,
+  ADD COLUMN pflanzenpass_code TEXT;
+
+-- Hinweis: Die INSERT/UPDATE-Policies für pflanzen_katalog (public_insert_katalog,
+-- public_update_katalog) wurden bereits weiter oben ergänzt (RLS-Fix vom 2026-09-11).
+
+CREATE OR REPLACE VIEW v_pflanzen_komplett AS
+SELECT
+  b.id,
+  b.name,
+  b.spitzname,
+  b.art_id,
+  k.pflanzenname_de,
+  k.gattung,
+  k.art_lateinisch,
+  k.wasserbedarf_stufe,
+  k.giessintervall_sommer_tage,
+  k.giessintervall_winter_tage,
+  k.giessregel,
+  k.licht,
+  k.giftig,
+  k.giftig_fuer,
+  k.pflege_duengen,
+  k.pflege_umtopfen,
+  k.pflege_luftfeuchtigkeit,
+  k.pflege_temperatur,
+  k.pflege_typische_probleme,
+  k.temperatur_min_c,
+  k.temperatur_max_c,
+  k.essbar,
+  k.giesshaeufigkeit_pro_woche,
+  k.sortenschutz,
+  k.zuechter,
+  k.webseite,
+  k.pflanzenpass_code,
+  b.standort_zimmer,
+  b.standort_etage,
+  b.standort_position,
+  b.topf_innendurchmesser_mm,
+  b.topf_zustand,
+  b.topf_umtopfen_empfohlen,
+  b.topf_notiz,
+  b.uebertopf_geplant_mm,
+  b.bewaesserungssystem,
+  b.zustand_bewertung,
+  b.zustand_bemerkungen,
+  b.zustand_letzte_kontrolle,
+  b.foto_url,
+  b.naechste_giessung,
+  b.korrektur_tage,
+  b.gruppe_id,
+  b.aktualisiert_am
+FROM pflanzen_bestand b
+LEFT JOIN pflanzen_katalog k ON b.art_id = k.id;
+
+
+-- ============================================================
+-- ERWEITERUNG V1.5: Foto-Upload (Storage-Policies)
+-- ============================================================
+
+-- Der Storage-Bucket "fotos" selbst kann nicht per SQL angelegt werden
+-- (das erfordert den Service-Role-Key bzw. das Dashboard: Storage -> New
+-- bucket -> Name "fotos", Public bucket: an). Ohne diese Policies schlaegt
+-- jeder Foto-Upload aus der App (uploadFoto() in src/lib/hooks.ts) mit
+-- einem RLS-Fehler fehl, selbst wenn der Bucket existiert.
+CREATE POLICY "public_all_fotos" ON storage.objects
+  FOR ALL USING (bucket_id = 'fotos') WITH CHECK (bucket_id = 'fotos');
+
+
+-- ============================================================
+-- ERWEITERUNG V1.6: Zugriff auf eingeloggte Nutzer beschränken
+-- ============================================================
+
+-- Bisher erlaubten alle Policies Zugriff ohne Login (USING (true), an die
+-- Rolle "anon" bzw. gar keine Rolle gebunden). Der Anon-Key ist aber kein
+-- Geheimnis - er steckt in .env/der App selbst. Ab hier braucht jeder
+-- Zugriff eine echte Supabase-Auth-Session (Rolle "authenticated").
+-- Konten werden manuell im Dashboard angelegt - es gibt bewusst keine
+-- Selbstregistrierung in der App.
+
+DROP POLICY IF EXISTS "public_read_katalog" ON pflanzen_katalog;
+DROP POLICY IF EXISTS "public_insert_katalog" ON pflanzen_katalog;
+DROP POLICY IF EXISTS "public_update_katalog" ON pflanzen_katalog;
+DROP POLICY IF EXISTS "public_all_bestand" ON pflanzen_bestand;
+DROP POLICY IF EXISTS "public_all_giessungen" ON giessungen;
+DROP POLICY IF EXISTS "public_read_gruppen" ON standort_gruppen;
+DROP POLICY IF EXISTS "public_all_feedback" ON feedback_log;
+DROP POLICY IF EXISTS "public_all_zimmer" ON zimmer;
+DROP POLICY IF EXISTS "public_all_fotos" ON storage.objects;
+
+CREATE POLICY "auth_all_katalog" ON pflanzen_katalog FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_bestand" ON pflanzen_bestand FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_giessungen" ON giessungen FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_gruppen" ON standort_gruppen FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_feedback" ON feedback_log FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_zimmer" ON zimmer FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_all_fotos" ON storage.objects
+  FOR ALL TO authenticated USING (bucket_id = 'fotos') WITH CHECK (bucket_id = 'fotos');
+
+-- Zusätzlich manuell im Dashboard nötig (siehe Anleitung im Chat):
+--  1) Storage -> fotos -> Bucket-Einstellungen -> "Public bucket" AUSSCHALTEN
+--     (sonst sind Fotos trotz dieser Policy über die öffentliche URL lesbar)
+--  2) Authentication -> Sign In / Providers -> "Allow new users to sign up" AUS
+--     (verhindert Selbstregistrierung über die Auth-API, unabhängig von der App)
+--  3) Authentication -> Users -> Add user (eigenes Konto anlegen, Auto Confirm an)
