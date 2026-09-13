@@ -23,20 +23,6 @@ export const ZUSTAND_FARBE: Record<string, string> = {
   'kritisch': '#8e1a0e',
 };
 
-export const ZUSTAND_EMOJI: Record<string, string> = {
-  'sehr gut': '🌿',
-  'gut':      '✅',
-  'mittel':   '⚠️',
-  'schlecht': '🟠',
-  'kritisch': '🔴',
-};
-
-export const WASSER_EMOJI: Record<WasserbedarfStufe, string> = {
-  niedrig: '💧',
-  mittel:  '💧💧',
-  hoch:    '💧💧💧',
-};
-
 export const ZUSTAND_OPTIONEN: ZustandBewertung[] = [
   'sehr gut', 'gut', 'mittel', 'schlecht', 'kritisch'
 ];
@@ -53,13 +39,6 @@ export const AMPEL_FARBE: Record<string, string> = {
   unbekannt: '#9aa5a0',
 };
 
-export const AMPEL_EMOJI: Record<string, string> = {
-  gruen: '🟢',
-  gelb: '🟡',
-  rot: '🔴',
-  unbekannt: '⚪',
-};
-
 export const AMPEL_LABEL: Record<string, string> = {
   gruen: 'Alles gut',
   gelb: 'Gießen möglich',
@@ -67,10 +46,10 @@ export const AMPEL_LABEL: Record<string, string> = {
   unbekannt: 'Noch nie gegossen',
 };
 
-export const FEEDBACK_OPTIONEN: { typ: 'zu_feucht' | 'zu_trocken' | 'passend'; label: string; delta: number; icon: string }[] = [
-  { typ: 'zu_feucht', label: 'Erde war noch feucht', delta: 1, icon: '💦' },
-  { typ: 'passend', label: 'War genau richtig', delta: 0, icon: '✅' },
-  { typ: 'zu_trocken', label: 'Blätter schon gekräuselt', delta: -1, icon: '🥀' },
+export const FEEDBACK_OPTIONEN: { typ: 'zu_feucht' | 'zu_trocken' | 'passend'; label: string; delta: number }[] = [
+  { typ: 'zu_feucht', label: 'Erde war noch feucht', delta: 1 },
+  { typ: 'passend', label: 'War genau richtig', delta: 0 },
+  { typ: 'zu_trocken', label: 'Blätter schon gekräuselt', delta: -1 },
 ];
 
 

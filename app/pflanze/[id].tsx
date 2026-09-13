@@ -9,7 +9,7 @@ import {
   usePflanze, useGiessungen, useZimmer, addGiessung, updateZustand, uploadFoto, updateFotoUrl,
   addFeedback, addZimmer, updatePflanzeDetails, deletePflanze, deleteGiessung, useSignedFotoUrl,
 } from '../../src/lib/hooks';
-import { COLORS, ZUSTAND_FARBE, ZUSTAND_EMOJI, ZUSTAND_OPTIONEN, WASSER_EMOJI, FEEDBACK_OPTIONEN, ETAGEN } from '../../src/lib/constants';
+import { COLORS, ZUSTAND_FARBE, ZUSTAND_OPTIONEN, FEEDBACK_OPTIONEN, ETAGEN } from '../../src/lib/constants';
 import { showAlert } from '../../src/lib/alert';
 import type { ZustandBewertung, Etage } from '../../src/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -154,7 +154,7 @@ export default function PflanzeDetailScreen() {
       return;
     }
     reload();
-    showAlert('✅ Danke!', 'Feedback wurde gespeichert und fließt in die nächste Gieß-Empfehlung ein.');
+    showAlert('Danke!', 'Feedback wurde gespeichert und fließt in die nächste Gieß-Empfehlung ein.');
   }
 
   async function handleZustandUpdate(neueBewertung: ZustandBewertung) {
@@ -224,12 +224,11 @@ export default function PflanzeDetailScreen() {
             <Image source={{ uri: fotoUrl }} style={styles.foto} resizeMode="cover" />
           ) : (
             <View style={styles.fotoPlaceholder}>
-              <Text style={styles.fotoIcon}>🌿</Text>
               <Text style={styles.fotoHint}>{fotoLoading ? 'Lädt...' : 'Tippen für Foto'}</Text>
             </View>
           )}
           <View style={[styles.zustandBadge, { backgroundColor: zustandFarbe }]}>
-            <Text style={styles.zustandBadgeText}>{ZUSTAND_EMOJI[bewertung]} {bewertung}</Text>
+            <Text style={styles.zustandBadgeText}>{bewertung}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -244,19 +243,19 @@ export default function PflanzeDetailScreen() {
           </View>
           {!bearbeiten && (
             <TouchableOpacity style={styles.bearbeitenButton} onPress={bearbeitenStarten}>
-              <Text style={styles.bearbeitenButtonText}>✏️ Bearbeiten</Text>
+              <Text style={styles.bearbeitenButtonText}>Bearbeiten</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {!bearbeiten ? (
           <View style={styles.row}>
-            <InfoChip icon="📍" label={`${pflanze.standort_zimmer ?? '–'} · ${pflanze.standort_etage ?? '–'}`} />
-            <InfoChip icon="🪴" label={pflanze.standort_position ?? '–'} />
+            <InfoChip label={`${pflanze.standort_zimmer ?? '–'} · ${pflanze.standort_etage ?? '–'}`} />
+            <InfoChip label={pflanze.standort_position ?? '–'} />
           </View>
         ) : (
           <View style={[styles.card, styles.editCard]}>
-            <Text style={styles.cardTitle}>✏️ Pflanze bearbeiten</Text>
+            <Text style={styles.cardTitle}>Pflanze bearbeiten</Text>
 
             <Text style={styles.feldLabelKlein}>Spitzname</Text>
             <TextInput style={styles.editInput} value={editSpitzname} onChangeText={setEditSpitzname} placeholder="z.B. Frieda" />
@@ -300,7 +299,7 @@ export default function PflanzeDetailScreen() {
                 style={[styles.editChip, editNeuesZimmerModus && styles.editChipAktiv]}
                 onPress={() => setEditNeuesZimmerModus(true)}
               >
-                <Text style={[styles.editChipText, editNeuesZimmerModus && styles.editChipTextAktiv]}>➕ Neu</Text>
+                <Text style={[styles.editChipText, editNeuesZimmerModus && styles.editChipTextAktiv]}>Neu</Text>
               </TouchableOpacity>
             </View>
             {editNeuesZimmerModus && (
@@ -361,13 +360,13 @@ export default function PflanzeDetailScreen() {
           activeOpacity={0.85}
         >
           <Text style={styles.giessButtonText}>
-            {giessLoading ? 'Wird eingetragen...' : '💧 Jetzt gegossen!'}
+            {giessLoading ? 'Wird eingetragen...' : 'Jetzt gegossen!'}
           </Text>
         </TouchableOpacity>
 
         {/* Feuchte-Feedback / Korrektur des Gieß-Rhythmus */}
         <View style={[styles.card, styles.feedbackCard]}>
-          <Text style={styles.cardTitle}>💧 Feedback zur Erdfeuchte</Text>
+          <Text style={styles.cardTitle}>Feedback zur Erdfeuchte</Text>
           <Text style={styles.feedbackHint}>
             Verschiebt den Gieß-Rhythmus dieser Pflanze für zukünftige Empfehlungen.
           </Text>
@@ -379,7 +378,6 @@ export default function PflanzeDetailScreen() {
                 onPress={() => handleFeedback(opt.typ, opt.delta)}
                 disabled={feedbackLoading}
               >
-                <Text style={styles.feedbackIcon}>{opt.icon}</Text>
                 <Text style={styles.feedbackLabel}>{opt.label}</Text>
               </TouchableOpacity>
             ))}
@@ -388,8 +386,8 @@ export default function PflanzeDetailScreen() {
 
         {/* Gieß-Info */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>💧 Bewässerung</Text>
-          <InfoRow label="Wasserbedarf" value={pflanze.wasserbedarf_stufe ? `${WASSER_EMOJI[pflanze.wasserbedarf_stufe]} ${pflanze.wasserbedarf_stufe}` : '–'} />
+          <Text style={styles.cardTitle}>Bewässerung</Text>
+          <InfoRow label="Wasserbedarf" value={pflanze.wasserbedarf_stufe ?? '–'} />
           <InfoRow label="Intervall Sommer" value={pflanze.giessintervall_sommer_tage ? `alle ${pflanze.giessintervall_sommer_tage} Tage` : '–'} />
           <InfoRow label="Intervall Winter" value={pflanze.giessintervall_winter_tage ? `alle ${pflanze.giessintervall_winter_tage} Tage` : '–'} />
           <InfoRow label="System" value={pflanze.bewaesserungssystem ?? '–'} />
@@ -406,7 +404,7 @@ export default function PflanzeDetailScreen() {
 
         {/* Zustand updaten */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>🔍 Zustand aktualisieren</Text>
+          <Text style={styles.cardTitle}>Zustand aktualisieren</Text>
           {pflanze.zustand_bemerkungen && (
             <Text style={styles.bemerkung}>„{pflanze.zustand_bemerkungen}"</Text>
           )}
@@ -425,7 +423,7 @@ export default function PflanzeDetailScreen() {
                   styles.zustandBtnText,
                   { color: bewertung === opt ? '#fff' : ZUSTAND_FARBE[opt] }
                 ]}>
-                  {ZUSTAND_EMOJI[opt]} {opt}
+                  {opt}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -434,7 +432,7 @@ export default function PflanzeDetailScreen() {
 
         {/* Pflegehinweise */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>🌱 Pflegehinweise</Text>
+          <Text style={styles.cardTitle}>Pflegehinweise</Text>
           <InfoRow label="Licht" value={pflanze.licht ?? '–'} />
           <InfoRow label="Temperatur" value={pflanze.pflege_temperatur ?? '–'} />
           <InfoRow label="Luftfeuchtigkeit" value={pflanze.pflege_luftfeuchtigkeit ?? '–'} />
@@ -442,7 +440,7 @@ export default function PflanzeDetailScreen() {
           <InfoRow label="Umtopfen" value={pflanze.pflege_umtopfen ?? '–'} />
           {pflanze.giftig && (
             <View style={styles.giftWarnung}>
-              <Text style={styles.giftText}>⚠️ Giftig: {pflanze.giftig_fuer}</Text>
+              <Text style={styles.giftText}>Giftig: {pflanze.giftig_fuer}</Text>
             </View>
           )}
           {pflanze.pflege_typische_probleme && pflanze.pflege_typische_probleme.length > 0 && (
@@ -458,14 +456,14 @@ export default function PflanzeDetailScreen() {
         {/* Topf-Info */}
         {!bearbeiten && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>🪴 Topf</Text>
+            <Text style={styles.cardTitle}>Topf</Text>
             <InfoRow label="Innendurchmesser" value={pflanze.topf_innendurchmesser_mm ? `${pflanze.topf_innendurchmesser_mm} mm` : 'noch messen'} />
             <InfoRow label="Zustand" value={pflanze.topf_zustand ?? '–'} />
             <InfoRow label="Übertopf geplant" value={pflanze.uebertopf_geplant_mm ? `${pflanze.uebertopf_geplant_mm} mm` : '–'} />
             {pflanze.topf_notiz && <Text style={styles.giessregel}>{pflanze.topf_notiz}</Text>}
             {pflanze.topf_umtopfen_empfohlen && (
               <View style={styles.umtopfenHinweis}>
-                <Text style={styles.umtopfenText}>🪴 Umtopfen empfohlen!</Text>
+                <Text style={styles.umtopfenText}>Umtopfen empfohlen!</Text>
               </View>
             )}
           </View>
@@ -474,7 +472,7 @@ export default function PflanzeDetailScreen() {
         {/* Gieß-History */}
         {giessungen.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📅 Gieß-Historie</Text>
+            <Text style={styles.cardTitle}>Gieß-Historie</Text>
             {giessungen.slice(0, 5).map(g => (
               <View key={g.id} style={styles.giessEntryRow}>
                 <View style={styles.giessEntry}>
@@ -489,7 +487,7 @@ export default function PflanzeDetailScreen() {
                   disabled={giessungLoeschenId === g.id}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.giessLoeschenIcon}>{giessungLoeschenId === g.id ? '…' : '🗑'}</Text>
+                  <Text style={styles.giessLoeschenIcon}>{giessungLoeschenId === g.id ? '…' : 'Löschen'}</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -504,7 +502,7 @@ export default function PflanzeDetailScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.loeschenButtonText}>
-            {loeschenLoading ? 'Wird gelöscht...' : '🗑 Pflanze löschen'}
+            {loeschenLoading ? 'Wird gelöscht...' : 'Pflanze löschen'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -521,10 +519,10 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InfoChip({ icon, label }: { icon: string; label: string }) {
+function InfoChip({ label }: { label: string }) {
   return (
     <View style={styles.infoChip}>
-      <Text style={styles.infoChipText}>{icon} {label}</Text>
+      <Text style={styles.infoChipText}>{label}</Text>
     </View>
   );
 }
@@ -581,7 +579,7 @@ const styles = StyleSheet.create({
   giessDate: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
   giessNotiz: { fontSize: 12, color: '#6a8a6e', marginTop: 2 },
   giessLoeschenButton: { paddingHorizontal: 10, paddingVertical: 8 },
-  giessLoeschenIcon: { fontSize: 15, opacity: 0.6 },
+  giessLoeschenIcon: { fontSize: 12, color: COLORS.danger, fontWeight: '600' },
   zweitname: { fontSize: 13, color: '#8aa08e', marginTop: -4, marginBottom: 4 },
   feedbackCard: { borderWidth: 1.5, borderColor: '#2980b9' },
   feedbackHint: { fontSize: 12, color: '#6a8a6e', marginBottom: 10 },

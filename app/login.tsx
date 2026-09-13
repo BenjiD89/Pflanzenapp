@@ -32,7 +32,7 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.titel}>🌿 Meine Pflanzen</Text>
+      <Text style={styles.titel}>Meine Pflanzen</Text>
       <Text style={styles.untertitel}>Bitte einloggen</Text>
 
       <TextInput

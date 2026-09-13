@@ -25,7 +25,7 @@ export default function KonfigurationScreen() {
       <View style={styles.header}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View>
-            <Text style={styles.headerTitle}>⚙️ Konfiguration</Text>
+            <Text style={styles.headerTitle}>Konfiguration</Text>
             <Text style={styles.headerSub}>{pflanzen.length} Pflanzen im Bestand</Text>
           </View>
           <TouchableOpacity style={styles.logoutButton} onPress={() => signOut()}>
@@ -39,7 +39,7 @@ export default function KonfigurationScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
           <TouchableOpacity style={styles.neueButton} onPress={() => setFormularOffen(true)}>
-            <Text style={styles.neueButtonText}>➕ Neue Pflanze hinzufügen</Text>
+            <Text style={styles.neueButtonText}>Neue Pflanze hinzufügen</Text>
           </TouchableOpacity>
 
           <Text style={styles.sectionTitel}>Alle Pflanzen</Text>
@@ -70,9 +70,7 @@ function PflanzenKachel({ pflanze, onPress }: { pflanze: PflanzeKomplett; onPres
       {fotoUrl ? (
         <Image source={{ uri: fotoUrl }} style={styles.kachelFoto} resizeMode="cover" />
       ) : (
-        <View style={styles.kachelFotoPlatzhalter}>
-          <Text style={{ fontSize: 28 }}>🌿</Text>
-        </View>
+        <View style={styles.kachelFotoPlatzhalter} />
       )}
       <Text style={styles.kachelName}>{pflanze.spitzname || pflanze.name}</Text>
       <Text style={styles.kachelUnterzeile}>{pflanze.gattung} · {pflanze.standort_zimmer ?? 'kein Standort'}</Text>
@@ -281,7 +279,7 @@ function NeuePflanzeModal({
     zuruecksetzen();
     onPflanzeHinzugefuegt();
     showAlert(
-      '✅ Erledigt',
+      'Erledigt',
       fotoZumHochladen
         ? 'Die neue Pflanze wurde angelegt. Das Foto wird im Hintergrund hochgeladen.'
         : 'Die neue Pflanze wurde angelegt.'
@@ -315,16 +313,14 @@ function NeuePflanzeModal({
           {fotoUri ? (
             <Image source={{ uri: fotoUri }} style={styles.fotoVorschau} resizeMode="cover" />
           ) : (
-            <View style={styles.fotoVorschauPlatzhalter}>
-              <Text style={{ fontSize: 32 }}>🌿</Text>
-            </View>
+            <View style={styles.fotoVorschauPlatzhalter} />
           )}
           <View style={styles.fotoButtonSpalte}>
             <TouchableOpacity style={styles.fotoKleinerButton} onPress={fotoAufnehmen}>
-              <Text style={styles.fotoKleinerButtonText}>📷 Kamera</Text>
+              <Text style={styles.fotoKleinerButtonText}>Kamera</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.fotoKleinerButton} onPress={fotoAusGalerie}>
-              <Text style={styles.fotoKleinerButtonText}>🖼️ Galerie</Text>
+              <Text style={styles.fotoKleinerButtonText}>Galerie</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -356,7 +352,7 @@ function NeuePflanzeModal({
             onPress={() => { setNeueArtModus(true); setArtId(null); }}
           >
             <Text style={[styles.auswahlChipText, neueArtModus && styles.auswahlChipTextAktiv]}>
-              ➕ Neue Pflanzenart
+              Neue Pflanzenart
             </Text>
           </TouchableOpacity>
         </View>
@@ -378,12 +374,12 @@ function NeuePflanzeModal({
                   <Text style={styles.kiButtonText}>Recherchiert…</Text>
                 </View>
               ) : (
-                <Text style={styles.kiButtonText}>🔍 KI-Recherche starten</Text>
+                <Text style={styles.kiButtonText}>KI-Recherche starten</Text>
               )}
             </TouchableOpacity>
             {kiLaedt && (
               <Text style={styles.kiHinweisText}>
-                ⏳ Das kann bis zu einer Minute dauern - die KI durchsucht dabei das Web nach Pflegeinfos.
+                Das kann bis zu einer Minute dauern - die KI durchsucht dabei das Web nach Pflegeinfos.
               </Text>
             )}
             {kiFehler && <Text style={styles.kiFehlerText}>{kiFehler}</Text>}
@@ -477,7 +473,7 @@ function NeuePflanzeModal({
             onPress={() => { setNeuesZimmerModus(true); setZimmerId(null); }}
           >
             <Text style={[styles.auswahlChipText, neuesZimmerModus && styles.auswahlChipTextAktiv]}>
-              ➕ Neues Zimmer
+              Neues Zimmer
             </Text>
           </TouchableOpacity>
         </View>

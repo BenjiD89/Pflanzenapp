@@ -77,7 +77,7 @@ round trip before wiring the app code to it.
 ## Also fixed: `pflanzen_katalog` had no INSERT/UPDATE policy
 
 The app's own "add new species" feature (`addArt()` in `src/lib/hooks.ts`,
-used by the "➕ Neue Pflanzenart" form) was silently broken from the start —
+used by the "Neue Pflanzenart" form) was silently broken from the start —
 `schema.sql` only ever granted `SELECT` on `pflanzen_katalog`, never
 `INSERT`/`UPDATE`, so the form's Speichern would have failed with an RLS
 error every time. Found this while trying to insert species records for
@@ -91,7 +91,7 @@ plant name (+ optional Gattung), it uses Claude with the native web-search
 tool to research care info and returns it as strict structured JSON matching
 the `pflanzen_katalog` schema (German text, matching the app's existing
 tone). Wired into the "Neue Pflanzenart" form in `konfiguration.tsx` via a
-"🔍 KI-Recherche starten" button — pre-fills wasserbedarf/Gießintervalle and
+"KI-Recherche starten" button — pre-fills wasserbedarf/Gießintervalle and
 shows the rest (Herkunft, Licht, Gießregel, Temperatur, Giftigkeit, sources)
 as a **review card the user must save to accept** — it never writes to the
 DB on its own.
@@ -158,19 +158,48 @@ guess if wrong (editing is cheap; the app already supports it).
   *existing* plants via the detail page's edit mode. Previously these were
   only ever set once at creation. Still shown on the homepage tiles exactly
   as before.
-- Deletable watering log entries: a 🗑 button with a confirm dialog on each
-  row of the "Gieß-Historie" card, for entries logged by mistake. New
+- Deletable watering log entries: a delete button with a confirm dialog on
+  each row of the "Gieß-Historie" card, for entries logged by mistake. New
   `deleteGiessung()` in `hooks.ts`.
 - Loading UX: the KI-Recherche button now shows a spinner + "kann bis zu
   einer Minute dauern" hint while the AI lookup is running.
+
+## Follow-up: all emojis removed from the UI
+
+A later ask in the same session: strip every emoji from the running app.
+Went through all six screens/components that had any (`app/(tabs)/index.tsx`,
+`app/(tabs)/konfiguration.tsx`, `app/(tabs)/_layout.tsx`, `app/pflanze/[id].tsx`,
+`app/login.tsx`, `src/lib/constants.ts`) and removed them, with two different
+approaches depending on whether the emoji carried information or was purely
+decorative:
+
+- **Purely decorative** (most of them — card titles like "💧 Bewässerung",
+  buttons like "📷 Kamera", alert titles like "✅ Erledigt"): just dropped the
+  emoji: the adjacent text already said the same thing, so nothing was lost.
+- **Actually conveyed something**: the tile info-button (was `ℹ️`, the *only*
+  marker of what that button did) became a plain "i"; the watering-log-entry
+  delete button (was a bare `🗑` icon, no text) became the word "Löschen".
+- Deleted now-dead exports entirely rather than leaving emoji strings behind:
+  `ZUSTAND_EMOJI`, `WASSER_EMOJI`, `AMPEL_EMOJI` (this last one was already
+  unused dead code even before this), and the `icon` field on
+  `FEEDBACK_OPTIONEN` — updated every call site (`InfoChip`'s `icon` prop
+  removed too, it had no non-emoji use). The two tab-bar icons in
+  `app/(tabs)/_layout.tsx` were emoji-only with no icon library wired up, so
+  those tabs now show text-only labels (`@expo/vector-icons` is a dependency
+  already but was never actually imported anywhere — worth reaching for it
+  first if real icons are wanted back later, rather than plain-text tabs).
+- Left one emoji alone on purpose: the `⚠️` in a comment at the top of
+  `src/lib/supabase.ts` — that's a source comment, not app UI, so out of
+  scope for "remove emojis from the app."
 
 ## Where things stand
 
 - All RLS/storage/schema changes are **live** on the Supabase project and
   verified working (both the intended access — login, photo upload/signed
   read, AI lookup — and the intended *denial* of anon access).
-- Latest Android preview build (post-lockdown):
-  https://expo.dev/artifacts/eas/3s6YFlzUTyUcaHu_-Czd5xAA95gbE11O9_Yg_cWBS3E.apk
+- Latest Android preview build (post-lockdown, emoji-free UI):
+  https://expo.dev/artifacts/eas/U4HvzzaBb4oe0hAJTCOhYOCuQ8jjrBofUjCyaagb7Ys.apk
+  (commit `7304c6e`, build `dcb03d8a`)
 - This commit is the first time a login screen exists — anyone testing the
   preview build needs an account created via the Supabase dashboard first
   (no self-serve signup by design).

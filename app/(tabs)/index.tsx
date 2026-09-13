@@ -87,7 +87,7 @@ export default function HomeScreen() {
       return;
     }
     ampelReload();
-    showAlert('✅ Erledigt', `${ids.length} Pflanze${ids.length > 1 ? 'n' : ''} in "${name}" gegossen.`);
+    showAlert('Erledigt', `${ids.length} Pflanze${ids.length > 1 ? 'n' : ''} in "${name}" gegossen.`);
   }
 
   function reloadAll() {
@@ -98,17 +98,16 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🌿 Meine Pflanzen</Text>
+        <Text style={styles.headerTitle}>Meine Pflanzen</Text>
         <Text style={styles.headerSub}>{pflanzen.length} Pflanzen · {etagenSortiert.length} Etagen</Text>
         {rotAnzahl > 0 && (
           <View style={styles.warnBanner}>
-            <Text style={styles.warnText}>🔴 {rotAnzahl} Pflanze{rotAnzahl > 1 ? 'n' : ''} braucht Wasser</Text>
+            <Text style={styles.warnText}>{rotAnzahl} Pflanze{rotAnzahl > 1 ? 'n' : ''} braucht Wasser</Text>
           </View>
         )}
       </View>
 
       <View style={styles.searchBox}>
-        <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={styles.searchInput}
           placeholder="Suchen..."
@@ -139,9 +138,9 @@ export default function HomeScreen() {
                   disabled={wateringArea === etage}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.etageTitel}>🏢 {etage}</Text>
+                  <Text style={styles.etageTitel}>{etage}</Text>
                   <Text style={styles.etageAktion}>
-                    {wateringArea === etage ? '…' : `💧 alle gießen (${etageIds.length})`}
+                    {wateringArea === etage ? '…' : `alle gießen (${etageIds.length})`}
                   </Text>
                 </TouchableOpacity>
 
@@ -158,9 +157,9 @@ export default function HomeScreen() {
                         disabled={wateringArea === zimmer}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.zimmerTitel}>📍 {zimmer}</Text>
+                        <Text style={styles.zimmerTitel}>{zimmer}</Text>
                         <Text style={styles.zimmerAktion}>
-                          {wateringArea === zimmer ? '…' : `${plantsInZimmer.length} · 💧`}
+                          {wateringArea === zimmer ? '…' : `${plantsInZimmer.length} gießen`}
                         </Text>
                       </TouchableOpacity>
 
@@ -217,7 +216,7 @@ function PflanzeTile({
         onPress={(e) => { e.stopPropagation(); onInfo(); }}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.infoIcon}>ℹ️</Text>
+        <Text style={styles.infoIcon}>i</Text>
       </TouchableOpacity>
 
       {watering ? (
@@ -311,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     zIndex: 2,
   },
-  infoIcon: { fontSize: 11 },
+  infoIcon: { fontSize: 12, fontWeight: '700', color: '#fff' },
   tileTextWrap: { alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 2 },
   tileName: { width: '100%', fontSize: 26, fontWeight: '800', color: '#fff', textAlign: 'center' },
   tileSubname: { width: '100%', fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.9)', marginTop: 4, textAlign: 'center' },
